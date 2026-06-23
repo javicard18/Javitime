@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black"/>
+<meta name="theme-color" content="#09090b"/>
+<title>JaviTime 🐸</title>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+:root{
+  --bg:#09090b;--bg2:#222226;--bg3:#303036;--bg4:#48484f;
+  --zn3:#e4e4e7;--zn4:#a1a1aa;--zn5:#71717a;--zn6:#52525b;
+  --cyan:#22d3ee;--cyan2:#06b6d4;--cyanBg:#083344;
+  --amber:#f59e0b;--amberBg:#1c1606;--amberBorder:#a16207;
+  --red:#ef4444;--green:#34d399;--teal:#0d9488;
+  --r:12px;--r2:8px;--r3:6px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0;}
+html,body{height:100%;background:var(--bg);color:var(--zn3);font-family:system-ui,-apple-system,sans-serif;}
+#root{display:flex;flex-direction:column;height:100dvh;height:100vh;}
+#main{flex:1;overflow-y:auto;padding:16px 16px 112px;}
+/* nav */
+#nav{position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--bg3);display:grid;grid-template-columns:repeat(6,1fr);z-index:100;}
+.nb{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px 8px;border:none;background:none;color:var(--zn5);font-size:10px;gap:3px;cursor:pointer;}
+.nb.on{color:var(--cyan);}
+.nb svg{width:18px;height:18px;}
+/* type */
+h2{font-size:20px;font-weight:700;margin-bottom:4px;}
+.sub{font-size:13px;color:var(--zn5);margin-bottom:14px;}
+.label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--zn4);}
+/* cards */
+.card{background:var(--bg2);border:1px solid var(--bg3);border-radius:var(--r);padding:14px;margin-bottom:10px;}
+.card.frog{background:var(--amberBg);border-color:var(--amberBorder);}
+.card.cyan{border-color:var(--cyan);}
+.card.dash{background:transparent;border:1px dashed var(--bg4);text-align:center;padding:16px;color:var(--zn6);font-size:13px;}
+/* inputs */
+input,textarea,select{background:var(--bg3);border:none;border-radius:var(--r2);color:var(--zn3);font-size:16px;padding:10px 12px;outline:none;font-family:inherit;width:100%;}
+textarea{resize:none;font-size:14px;}
+.row{display:flex;gap:8px;align-items:stretch;}
+.row input{flex:1;}
+/* buttons */
+btn,.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;border:none;border-radius:var(--r2);cursor:pointer;font-family:inherit;font-weight:600;}
+.btn-cyan{background:var(--cyan);color:#09090b;padding:10px 14px;font-size:13px;}
+.btn-sm{background:var(--bg3);color:var(--zn4);padding:5px 8px;font-size:11px;border-radius:5px;border:none;cursor:pointer;font-family:inherit;}
+.btn-sm.on{background:var(--cyanBg);color:var(--cyan);}
+.btn-icon{background:var(--bg3);border:none;border-radius:var(--r2);width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--zn4);flex-shrink:0;}
+.btn-del{background:none;border:none;color:var(--zn5);cursor:pointer;padding:4px;}
+/* chips */
+.chip{display:inline-flex;align-items:center;gap:4px;background:var(--bg3);color:var(--zn4);border-radius:4px;padding:2px 7px;font-size:11px;}
+.chip.on{background:var(--cyanBg);color:var(--cyan);}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;}
+/* abcde */
+.abc-row{display:flex;gap:5px;margin:8px 0;}
+.abc-btn{width:30px;height:30px;border-radius:5px;border:none;font-weight:700;font-size:13px;cursor:pointer;flex-shrink:0;}
+/* check */
+.chk{width:22px;height:22px;border-radius:6px;border:2px solid var(--bg4);background:none;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;}
+.chk.on{background:var(--cyan);border-color:var(--cyan);}
+.chk-sm{width:18px;height:18px;border-radius:4px;border:2px solid var(--bg4);background:none;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;}
+.chk-sm.on{background:var(--cyan);border-color:var(--cyan);}
+/* task row */
+.trow{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;}
+.trow-body{flex:1;min-width:0;}
+.trow-title{font-weight:600;word-break:break-word;}
+.trow-title.done{text-decoration:line-through;color:var(--zn5);}
+.trow-sub{font-size:11px;color:var(--cyan);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.trow-note{font-size:11px;color:var(--zn5);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.trow-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.tbadge{font-size:10px;padding:2px 6px;border-radius:4px;background:var(--cyanBg);color:var(--cyan);}
+.tbadge.time{background:var(--bg3);}
+/* pomodoro */
+.pomo-timer{font-size:52px;font-weight:700;text-align:center;font-variant-numeric:tabular-nums;line-height:1;padding:8px 0;}
+.pomo-timer.done{color:var(--green);}
+.pomo-row{display:flex;gap:8px;margin-top:10px;}
+.pomo-row .btn-cyan{flex:1;padding:12px;}
+/* section header */
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+/* accordion */
+.acc-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px;cursor:pointer;width:100%;background:none;border:none;color:var(--zn3);font-family:inherit;text-align:left;}
+.acc-hdr .acc-title{font-weight:600;font-size:15px;}
+.acc-hdr .acc-meta{font-size:12px;color:var(--zn5);}
+.acc-body{padding:0 12px 12px;}
+/* stats bar */
+.bar-wrap{display:flex;align-items:flex-end;justify-content:space-between;gap:6px;height:80px;}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;}
+.bar-val{font-size:10px;color:var(--zn4);margin-bottom:2px;}
+.bar-fill{width:100%;border-radius:3px 3px 0 0;}
+.bar-lbl{font-size:9px;color:var(--zn6);margin-top:3px;}
+/* cal */
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+.cal-hdr{font-size:11px;color:var(--zn5);text-align:center;padding:4px 0;}
+.cal-cell{aspect-ratio:1;border-radius:6px;background:var(--bg2);font-size:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border:none;color:var(--zn3);}
+.cal-cell.today{border:1px solid var(--cyan);color:var(--cyan);}
+.cal-cell.sel{background:var(--cyan);color:#09090b;font-weight:700;}
+.cal-dot{width:5px;height:5px;border-radius:50%;background:var(--cyan);margin-top:1px;}
+.cal-dot.sel-dot{background:#09090b;}
+/* period tabs */
+.period-tabs{display:flex;gap:5px;margin-bottom:12px;}
+.period-tabs button{flex:1;padding:7px;border-radius:var(--r2);border:none;font-family:inherit;font-size:13px;cursor:pointer;background:var(--bg3);color:var(--zn4);}
+.period-tabs button.on{background:var(--cyan);color:#09090b;font-weight:700;}
+/* segment */
+.seg{display:flex;gap:6px;margin-bottom:14px;}
+.seg button{flex:1;padding:9px;border-radius:var(--r2);border:none;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;background:var(--bg3);color:var(--zn4);}
+.seg button.on{background:var(--cyan);color:#09090b;}
+/* misc */
+.flex{display:flex;align-items:center;gap:8px;}
+.empty{font-size:13px;color:var(--zn6);padding:6px 0;}
+.warn{font-size:11px;color:var(--red);}
+.ok{font-size:11px;color:var(--green);}
+.mt1{margin-top:6px;}
+.mt2{margin-top:12px;}
+.mt3{margin-top:20px;}
+.mb1{margin-bottom:6px;}
+.mb2{margin-bottom:12px;}
+.divider{text-align:center;color:var(--zn6);font-size:13px;margin:8px 0;}
+.goal-box{background:var(--bg2);border:1px solid var(--bg3);border-radius:var(--r);padding:14px;margin-bottom:4px;}
+.banner{background:var(--bg2);border:1px solid var(--amberBorder);border-radius:var(--r);padding:12px;margin-bottom:12px;display:flex;gap:8px;align-items:flex-start;}
+.banner p{flex:1;font-size:13px;color:#fcd34d;}
+.lote-plan-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.stepper{display:flex;align-items:center;gap:6px;}
+.stepper button{width:24px;height:24px;background:var(--bg3);border:none;border-radius:4px;color:var(--zn3);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.stepper span{width:22px;text-align:center;font-size:13px;font-variant-numeric:tabular-nums;}
+/* hidden */
+.hidden{display:none!important;}
+/* sub-tasks list */
+.sub-list{margin-top:8px;space-y:6px;}
+.sub-item{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.sub-text{font-size:13px;flex:1;}
+.sub-text.done{text-decoration:line-through;color:var(--zn5);}
+/* editor panel */
+.editor{border-top:1px solid var(--bg3);margin-top:10px;padding-top:10px;}
+.editor-row{margin-bottom:10px;}
+.editor-label{font-size:11px;color:var(--zn5);margin-bottom:4px;}
+/* expense item */
+.exp-item{background:var(--bg2);border:1px solid var(--bg3);border-radius:var(--r);padding:12px;margin-bottom:8px;}
+.exp-item-row{display:flex;align-items:center;gap:10px;}
+.exp-desc{flex:1;font-size:14px;font-weight:500;}
+.exp-amt{font-size:14px;font-variant-numeric:tabular-nums;}
+.exp-meta{display:flex;gap:6px;margin-top:5px;align-items:center;}
+.exp-cat{font-size:11px;background:var(--cyanBg);color:var(--cyan);padding:2px 6px;border-radius:4px;}
+.exp-det{font-size:11px;color:var(--zn5);}
+/* total box */
+.total-box{background:var(--bg2);border:1px solid var(--bg3);border-radius:var(--r);padding:16px;margin-bottom:14px;}
+.total-lbl{font-size:11px;color:var(--zn5);text-transform:uppercase;letter-spacing:.05em;}
+.total-val{font-size:30px;font-weight:700;color:var(--green);font-variant-numeric:tabular-nums;}
+.total-cats{margin-top:10px;}
+.total-cat-row{display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;}
+.total-cat-key{color:var(--zn4);}
+/* idea item */
+.idea-item{background:var(--bg2);border:1px solid var(--bg3);border-radius:var(--r);padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;}
+.idea-text{flex:1;font-size:14px;}
+/* group card in banco */
+.group-card{background:var(--bg2);border:1px solid var(--bg3);border-radius:var(--r);margin-bottom:8px;overflow:hidden;}
+.group-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px;cursor:pointer;border:none;background:none;width:100%;color:var(--zn3);font-family:inherit;}
+.group-hdr-left{display:flex;align-items:center;gap:8px;}
+.abc-badge{width:26px;height:26px;border-radius:5px;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.group-body{padding:0 12px 12px;}
+.bank-card{background:var(--bg);border:1px solid var(--bg3);border-radius:8px;padding:12px;margin-bottom:8px;}
+/* todo chips inline */
+.tag-row{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="main"></div>
+  <nav id="nav"></nav>
+</div>
+
+<script>
+/* ============================================================
+   UTILS
+============================================================ */
+const uid=()=>Math.random().toString(36).slice(2,9);
+const pad=n=>String(n).padStart(2,'0');
+const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function todayStr(){const d=new Date();return`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;}
+function wdKey(d=new Date()){return['dom','lun','mar','mie','jue','vie','sab'][d.getDay()];}
+function monIdx(d=new Date()){return(d.getDay()+6)%7;}
+function dateOfWd(wk){
+  const o={lun:0,mar:1,mie:2,jue:3,vie:4,sab:5,dom:6};
+  const t=new Date();const df=o[wk]-monIdx(t);
+  const d=new Date(t);d.setDate(t.getDate()+df);
+  return`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+const weekDates=()=>{const o={};['lun','mar','mie','jue','vie','sab','dom'].forEach(k=>(o[k]=dateOfWd(k)));return o;}
+function last7(){const a=[];for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);a.push(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`);}return a;}
+function shortDay(s){const[y,m,d]=s.split('-').map(Number);const keys=['dom','lun','mar','mie','jue','vie','sab'];const short={lun:'lun',mar:'mar',mie:'mié',jue:'jue',vie:'vie',sab:'sáb',dom:'dom'};return short[keys[new Date(y,m-1,d).getDay()]];}
+const money=n=>'$ '+Number(n||0).toLocaleString('es-AR');
+const DAY_KEYS=['lun','mar','mie','jue','vie','sab','dom'];
+const DAY_LABEL={lun:'Lunes',mar:'Martes',mie:'Miércoles',jue:'Jueves',vie:'Viernes',sab:'Sábado',dom:'Domingo'};
+const DAY_SHORT={lun:'lun',mar:'mar',mie:'mié',jue:'jue',vie:'vie',sab:'sáb',dom:'dom'};
+const MONTHS=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const ABCDE=[{k:'A',label:'Crítica · sí o sí',color:'#ef4444'},{k:'B',label:'Importante · debería',color:'#f59e0b'},{k:'C',label:'Estaría bueno',color:'#eab308'},{k:'D',label:'Delegar',color:'#22d3ee'},{k:'E',label:'Eliminar',color:'#71717a'}];
+const MANTRAS=['No cuentes las tareas. Empezá la primera.','El sapo primero. Lo demás se acomoda.','Solo 3 cosas. El resto puede esperar.','Hecho es mejor que perfecto.','Disciplina hoy, tranquilidad mañana.','Una tarea a la vez. Esa es la regla.','No estás atrasado. Estás empezando ahora.'];
+
+/* ============================================================
+   STATE
+============================================================ */
+const KEY='javitime:v1';
+const DEF={tasks:[],ideas:[],expenses:[],goals:{month:'',week:''},pomoEvents:[],taskCats:['Depósito','Local','Caja','Web'],expCats:['Mercadería','Servicios','Sueldos','Personal'],lotePlan:{},sys:{},archive:[]};
+let S=JSON.parse(JSON.stringify(DEF));
+
+function loadState(){
+  try{const r=localStorage.getItem(KEY);if(r)S=JSON.parse(r);}catch(e){}
+  // ensure arrays exist
+  if(!S.tasks)S.tasks=[];if(!S.ideas)S.ideas=[];if(!S.expenses)S.expenses=[];
+  if(!S.goals)S.goals={month:'',week:''};if(!S.pomoEvents)S.pomoEvents=[];
+  if(!S.taskCats)S.taskCats=['Depósito','Local','Caja','Web'];
+  if(!S.expCats)S.expCats=['Mercadería','Servicios','Sueldos','Personal'];
+  if(!S.lotePlan)S.lotePlan={};if(!S.sys)S.sys={};
+  if(!S.archive)S.archive=[];
+  // normalize tasks: ensure all fields exist (old tasks may be missing subtasks, abc, etc.)
+  S.tasks=S.tasks.map(t=>({subtasks:[],pomoGoal:0,pomoDone:0,abc:'',batch:'',time:'',note:'',isFrog:false,main:false,done:false,doneAt:'',dayDate:'',unfinished:false,...t}));
+  // migrate dayDate
+  const tdate=todayStr();
+  S.tasks=S.tasks.map(t=>DAY_KEYS.includes(t.day)&&!t.dayDate?{...t,dayDate:dateOfWd(t.day)}:t);
+  // rollover diario: hechas → archivo, no hechas → banco "no realizada"
+  if(!S.sys.lastRollover)S.sys.lastRollover=tdate;
+  else if(S.sys.lastRollover!==tdate){
+    rollover(tdate);
+  }
+}
+
+function rollover(tdate){
+  let undone=0,done=0;
+  const keep=[];
+  S.tasks.forEach(t=>{
+    const isPast=t.dayDate&&t.dayDate<tdate&&DAY_KEYS.includes(t.day);
+    if(isPast){
+      if(t.done){
+        S.archive.push({id:t.id,text:t.text,batch:t.batch||'',abc:t.abc||'',doneAt:t.doneAt||t.dayDate});
+        done++;
+      }else{
+        keep.push({...t,day:'banco',dayDate:'',main:false,isFrog:false,unfinished:true,abc:''});
+        undone++;
+      }
+    }else{keep.push(t);}
+  });
+  S.tasks=keep;
+  S.sys.lastRollover=tdate;
+  UI.rolled={undone,done};
+  save();
+}
+/* ============================================================
+   FIREBASE — Realtime Database
+============================================================ */
+const fbConfig={
+  apiKey:"AIzaSyACdZKT1NIqgav-7xqVinH06DgkM7_dolA",
+  authDomain:"organizacion-93e07.firebaseapp.com",
+  databaseURL:"https://organizacion-93e07-default-rtdb.firebaseio.com",
+  projectId:"organizacion-93e07",
+  storageBucket:"organizacion-93e07.firebasestorage.app",
+  messagingSenderId:"650906241185",
+  appId:"1:650906241185:web:2f9060552095d4711448e0"
+};
+let db=null;
+let fbWriting=false;
+let saveTimer=null;
+
+function initFirebase(){
+  try{
+    firebase.initializeApp(fbConfig);
+    db=firebase.database();
+    // Escuchar cambios en tiempo real (desde otro dispositivo)
+    db.ref('javitime').on('value',snap=>{
+      if(fbWriting)return;
+      const data=snap.val();
+      if(!data)return;
+      // Actualizar estado con lo que viene de Firebase
+      Object.assign(S,data);
+      if(!S.tasks)S.tasks=[];if(!S.ideas)S.ideas=[];
+      if(!S.expenses)S.expenses=[];if(!S.pomoEvents)S.pomoEvents=[];
+      if(!S.taskCats)S.taskCats=['Depósito','Local','Caja','Web'];
+      if(!S.expCats)S.expCats=['Mercadería','Servicios','Sueldos','Personal'];
+      if(!S.lotePlan)S.lotePlan={};if(!S.goals)S.goals={month:'',week:''};
+      if(!S.sys)S.sys={};if(!S.archive)S.archive=[];
+      // normalize tasks from Firebase too
+      S.tasks=S.tasks.map(t=>({subtasks:[],pomoGoal:0,pomoDone:0,abc:'',batch:'',time:'',note:'',isFrog:false,main:false,done:false,doneAt:'',dayDate:'',unfinished:false,...t}));
+      try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
+      render();
+    });
+  }catch(e){console.warn('Firebase no disponible, modo offline',e);}
+}
+
+function save(){
+  // Guardar local siempre
+  try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
+  // Guardar en Firebase con debounce
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{
+    if(!db)return;
+    fbWriting=true;
+    db.ref('javitime').set(S).catch(e=>console.warn(e)).finally(()=>{
+      setTimeout(()=>{fbWriting=false;},600);
+    });
+  },500);
+}
+
+/* ============================================================
+   UI STATE
+============================================================ */
+const UI={
+  tab:'hoy',
+  rolled:0,
+  // banco
+  bancoSub:'banco',
+  openGroups:['sin'],
+  // semana
+  openDay:wdKey(),
+  // cal
+  calYm:todayStr().slice(0,7),
+  calSel:todayStr(),
+  // gastos
+  gPeriod:'dia',
+  // expanded task editors
+  editIds:new Set(),
+  // open task subtasks
+  openSubs:new Set(),
+  // open acc (semana days already in openDay)
+  // lo demas open
+  loDemaOpen:false,
+  // lotes open
+  loteOpen:null,
+};
+
+/* ============================================================
+   TASK HELPERS
+============================================================ */
+function addTask(text,day='banco'){
+  const t=text.trim();if(!t)return;
+  S.tasks.push({id:uid(),text:t,day,dayDate:DAY_KEYS.includes(day)?dateOfWd(day):'',main:false,isFrog:false,time:'',note:'',batch:'',abc:'',pomoGoal:0,pomoDone:0,done:false,doneAt:'',subtasks:[]});
+  save();
+}
+function delTask(id){S.tasks=S.tasks.filter(t=>t.id!==id);save();}
+function patch(id,p){S.tasks=S.tasks.map(t=>t.id===id?{...t,...p}:t);save();}
+function toggle(id){const tdate=todayStr();S.tasks=S.tasks.map(t=>t.id===id?{...t,done:!t.done,doneAt:!t.done?tdate:''}:t);save();}
+function move(id,day){patch(id,{day,dayDate:DAY_KEYS.includes(day)?dateOfWd(day):''});}
+function mainCountToday(){return S.tasks.filter(t=>t.main&&t.dayDate===todayStr()).length;}
+function setMain(id,val){if(val&&mainCountToday()>=3)return;S.tasks=S.tasks.map(t=>t.id===id?{...t,main:val,day:val?wdKey():t.day,dayDate:val?todayStr():t.dayDate,isFrog:val?t.isFrog:false}:t);save();}
+function setFrog(id){S.tasks=S.tasks.map(t=>t.id===id?{...t,isFrog:!t.isFrog,main:true,day:wdKey(),dayDate:todayStr()}:{...t,isFrog:false});save();}
+function addSub(tid,text){const s=text.trim();if(!s)return;S.tasks=S.tasks.map(t=>t.id===tid?{...t,subtasks:[...t.subtasks,{id:uid(),text:s,done:false}]}:t);save();}
+function togSub(tid,sid){S.tasks=S.tasks.map(t=>t.id===tid?{...t,subtasks:t.subtasks.map(s=>s.id===sid?{...s,done:!s.done}:s)}:t);save();}
+function delSub(tid,sid){S.tasks=S.tasks.map(t=>t.id===tid?{...t,subtasks:t.subtasks.filter(s=>s.id!==sid)}:t);save();}
+
+/* ============================================================
+   POMODORO — registro manual (sin timer; el timer lo lleva el reloj)
+============================================================ */
+function logPomo(tid){
+  const t=S.tasks.find(x=>x.id===tid);if(!t)return;
+  S.pomoEvents.push({date:todayStr(),cat:t.batch||'',taskId:tid});
+  S.tasks=S.tasks.map(x=>x.id===tid?{...x,pomoDone:(x.pomoDone||0)+1}:x);
+  save();renderTab();
+}
+function unlogPomo(tid){
+  const t=S.tasks.find(x=>x.id===tid);if(!t||(t.pomoDone||0)<=0)return;
+  // sacar el último evento de hoy de esa tarea
+  for(let i=S.pomoEvents.length-1;i>=0;i--){if(S.pomoEvents[i].taskId===tid&&S.pomoEvents[i].date===todayStr()){S.pomoEvents.splice(i,1);break;}}
+  S.tasks=S.tasks.map(x=>x.id===tid?{...x,pomoDone:Math.max(0,(x.pomoDone||0)-1)}:x);
+  save();renderTab();
+}
+
+/* ============================================================
+   RENDER ENGINE
+============================================================ */
+function render(){renderNav();renderTab();}
+function renderNav(){
+  const navItems=[
+    {id:'hoy',  emoji:'🐸',    label:'Hoy'},
+    {id:'semana',svg:svCal,   label:'Semana'},
+    {id:'cal',   svg:svCalR,  label:'Mes'},
+    {id:'banco', svg:svInbox, label:'Banco'},
+    {id:'metas', svg:svTarget,label:'Metas'},
+    {id:'gastos',svg:svWallet,label:'Gastos'},
+  ];
+  document.getElementById('nav').innerHTML=navItems.map(({id,emoji,svg,label})=>`
+    <button class="nb ${UI.tab===id?'on':''}" onclick="setTab('${id}')">
+      ${emoji?`<span style="font-size:18px;line-height:1">${emoji}</span>`:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${svg}</svg>`}
+      <span>${label}</span>
+    </button>`).join('');
+}
+function setTab(t){UI.tab=t;renderNav();renderTab();}
+function renderTab(){
+  try{
+    document.getElementById('main').innerHTML=tabs[UI.tab]()||'';
+  }catch(e){
+    document.getElementById('main').innerHTML=
+      `<div style="background:#7f1d1d;color:#fecaca;padding:20px;margin:16px;border-radius:12px;font-size:13px">
+        <b>Error en "${UI.tab}":</b><br>${e.message}<br>
+        <button onclick="UI.tab='hoy';renderTab()" style="background:#fca5a5;color:#7f1d1d;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;margin-top:10px">← Ir a Hoy</button>
+      </div>`;
+    console.error('JaviTime:',e);
+  }
+}
+
+/* SVG paths */
+const svCal='<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/>';
+const svCalR='<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4M3 15h18"/>';
+const svInbox='<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6"/>';
+const svTarget='<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>';
+const svWallet='<path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M16 12h5"/>';
+const svCheck='<polyline points="20 6 9 17 4 12"/>';
+const svX='<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>';
+const svPlus='<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>';
+const svMinus='<line x1="5" y1="12" x2="19" y2="12"/>';
+const svPen='<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>';
+const svPlay='<polygon points="5 3 19 12 5 21" fill="currentColor"/>';
+const svPause='<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+const svReset='<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>';
+const svCoffee='<path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/>';
+const svLeft='<polyline points="15 18 9 12 15 6"/>';
+const svRight='<polyline points="9 18 15 12 9 6"/>';
+const svBulb='<path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12c.6.6 1 1.6 1 3h6c0-1.4.4-2.4 1-3a7 7 0 0 0-4-12z"/>';
+const ico=(path,sz=16)=>`<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+
+/* ============================================================
+   HOY TAB
+============================================================ */
+function renderTaskEditor(t,showLote=true){
+  const subsHtml=t.subtasks.map(s=>`
+    <div class="sub-item">
+      <div class="chk-sm ${s.done?'on':''}" onclick="togSub('${t.id}','${s.id}');renderTab()">${s.done?ico(svCheck,12):''}</div>
+      <span class="sub-text ${s.done?'done':''}">${esc(s.text)}</span>
+      <button class="btn-del" onclick="delSub('${t.id}','${s.id}');renderTab()">${ico(svX,14)}</button>
+    </div>`).join('');
+  return`<div class="editor">
+    <div class="editor-row"><div class="editor-label">🕐 Hora</div>
+      <div class="flex"><input type="time" style="width:auto" value="${esc(t.time||'')}" onchange="patch('${t.id}',{time:this.value})" />${t.time?`<button class="btn-sm" onclick="patch('${t.id}',{time:''});renderTab()">quitar</button>`:''}</div></div>
+    ${showLote?`<div class="editor-row"><div class="editor-label">🏷 Lote</div><div class="chips">${renderCatChips(t.batch,S.taskCats,'setTaskBatch',''+t.id)}</div></div>`:''}
+    <div class="editor-row"><div class="editor-label">📝 Nota</div><textarea rows="2" placeholder="Detalles de esta tarea…" onchange="patch('${t.id}',{note:this.value})">${esc(t.note||'')}</textarea></div>
+    <div class="editor-row"><div class="editor-label">✔️ Subtareas</div>
+      <div class="sub-list">${subsHtml}</div>
+      <div class="row mt1">
+        <input id="sub-inp-${t.id}" placeholder="Agregar subtarea…" onkeydown="if(event.key==='Enter'){addSubFromInput('${t.id}')}" style="flex:1"/>
+        <button class="btn-icon" onclick="addSubFromInput('${t.id}')">${ico(svPlus)}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function addSubFromInput(tid){
+  const el=document.getElementById('sub-inp-'+tid);
+  if(!el||!el.value.trim())return;
+  addSub(tid,el.value);el.value='';renderTab();
+}
+
+function renderCatChips(val,cats,actionFn,extra=''){
+  return cats.map(c=>`<button class="chip ${val===c?'on':''}" onclick="${actionFn}('${esc(c)}','${esc(extra)}');renderTab()">${esc(c)}</button>`).join('')+
+    `<button class="chip" onclick="addCatPrompt('${actionFn==='setTaskBatch'?'task':'exp'}','${esc(extra)}')">＋</button>`;
+}
+
+function setTaskBatch(cat,tid){patch(tid,{batch:S.tasks.find(t=>t.id===tid)?.batch===cat?'':cat});}
+function setExpCat(cat){window._expCat=cat;document.querySelectorAll('#exp-cat-chips .chip').forEach(c=>{c.classList.toggle('on',c.textContent===cat);});}
+
+function addCatPrompt(type,extra){
+  const n=(prompt('Nombre de la nueva categoría:')||'').trim();
+  if(!n)return;
+  if(type==='task'){if(!S.taskCats.includes(n))S.taskCats.push(n);if(extra)patch(extra,{batch:n});}
+  else{if(!S.expCats.includes(n))S.expCats.push(n);}
+  save();renderTab();
+}
+
+function renderPomoStep(done,goal,tid){
+  return`<div class="stepper mt1" style="flex-wrap:wrap">
+    <span style="font-size:11px;color:var(--zn4)">🍅 ${done||0}/${goal||0}</span>
+    <span style="font-size:10px;color:var(--zn5);margin-left:2px">meta</span>
+    <button onclick="patch('${tid}',{pomoGoal:Math.max(0,(S.tasks.find(t=>t.id==='${tid}')?.pomoGoal||0)-1)});renderTab()">${ico(svMinus,12)}</button>
+    <button onclick="patch('${tid}',{pomoGoal:(S.tasks.find(t=>t.id==='${tid}')?.pomoGoal||0)+1});renderTab()">${ico(svPlus,12)}</button>
+    <button onclick="logPomo('${tid}')" style="background:var(--cyanBg);color:var(--cyan);width:auto;padding:0 8px;font-size:11px;font-weight:700;height:24px;border-radius:5px;border:none;cursor:pointer">🍅 +1 hecho</button>
+    ${done>0?`<button onclick="unlogPomo('${tid}')" style="font-size:11px;color:var(--zn5)">−</button>`:''}
+  </div>`;
+}
+
+function renderPrincipalCard(t){
+  const frog=t.isFrog;
+  const next=t.subtasks.find(s=>!s.done);
+  const edOpen=UI.editIds.has(t.id);
+  const subsOpen=UI.openSubs.has(t.id);
+  const style=frog?'background:var(--amberBg);border-color:var(--amberBorder)':'';
+  return`<div class="card ${frog?'frog':''}" style="${style};margin-bottom:10px">
+    <div class="trow">
+      <div class="chk ${t.done?'on':''}" onclick="toggle('${t.id}');renderTab()">${t.done?ico(svCheck,14):''}</div>
+      <div class="trow-body">
+        <div class="flex" style="flex-wrap:wrap;gap:5px">
+          ${frog?'<span style="font-size:18px">🐸</span>':''}
+          ${t.time?`<span class="tbadge time">${esc(t.time)}</span>`:''}
+          ${t.batch?`<span class="tbadge">${esc(t.batch)}</span>`:''}
+          <span class="trow-title ${t.done?'done':''}">${esc(t.text)}</span>
+        </div>
+        ${next&&!edOpen?`<div class="trow-sub">Ahora: ${esc(next.text)}</div>`:''}
+        ${t.note&&!edOpen?`<div class="trow-note">📝 ${esc(t.note)}</div>`:''}
+        ${renderPomoStep(t.pomoDone,t.pomoGoal,t.id)}
+        <div class="trow-actions">
+          <button class="btn-sm ${frog?'on':''}" onclick="setFrog('${t.id}');renderTab()">${frog?'🐸 sapo':'sapo'}</button>
+          <button class="btn-sm" onclick="toggleEdit('${t.id}')">${ico(svPen,11)} editar</button>
+          ${t.subtasks.length?`<button class="btn-sm" onclick="toggleSubs('${t.id}')">${subsOpen?'ocultar':`${t.subtasks.filter(s=>s.done).length}/${t.subtasks.length} pasos`}</button>`:''}
+          <button class="btn-sm" onclick="setMain('${t.id}',false);renderTab()">↓ quitar</button>
+        </div>
+        ${subsOpen&&!edOpen?`<div class="sub-list mt1">${t.subtasks.map(s=>`<div class="sub-item"><div class="chk-sm ${s.done?'on':''}" onclick="togSub('${t.id}','${s.id}');renderTab()">${s.done?ico(svCheck,12):''}</div><span class="sub-text ${s.done?'done':''}">${esc(s.text)}</span></div>`).join('')}</div>`:''}
+        ${edOpen?renderTaskEditor(t,true):''}
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleEdit(id){UI.editIds.has(id)?UI.editIds.delete(id):UI.editIds.add(id);renderTab();}
+function toggleSubs(id){UI.openSubs.has(id)?UI.openSubs.delete(id):UI.openSubs.add(id);renderTab();}
+
+function renderLoDemas(otras){
+  if(!otras.length)return'';
+  const groups={};otras.forEach(t=>{const k=t.batch||'Sin lote';(groups[k]=groups[k]||[]).push(t);});
+  const canP=mainCountToday()<3;
+  const bodyHtml=UI.loDemaOpen?Object.keys(groups).map(g=>`
+    <div class="mb2">
+      <div class="label mb1">${esc(g)} (${groups[g].length})</div>
+      ${groups[g].map(t=>`<div class="card" style="margin-bottom:6px">
+        <div class="flex" style="align-items:flex-start">
+          <div class="chk ${t.done?'on':''}" style="margin-top:2px" onclick="toggle('${t.id}');renderTab()">${t.done?ico(svCheck,14):''}</div>
+          <span class="trow-title ${t.done?'done':''}" style="flex:1;margin:0 8px">${esc(t.text)}</span>
+          <button class="btn-sm" onclick="toggleEdit('${t.id}')">${ico(svPen,11)}</button>
+          <button class="btn-sm ${canP?'':''}${canP?'on':''}" style="margin-left:4px;${canP?'background:var(--amber);color:#09090b':''}" onclick="${canP?`setMain('${t.id}',true);renderTab()`:'alert(\"Ya tenés 3 principales\")'}" >⭐</button>
+        </div>
+        <div class="chips" style="margin-top:8px">${renderCatChips(t.batch,S.taskCats,'setTaskBatch',t.id)}</div>
+        ${renderPomoStep(t.pomoDone,t.pomoGoal,t.id)}
+        ${UI.editIds.has(t.id)?renderTaskEditor(t,false):''}
+      </div>`).join('')}
+    </div>`).join(''):'<p style="font-size:12px;color:var(--zn6)">Plegado para no saturarte. Tocá para ver.</p>';
+  return`<div class="mt3">
+    <button style="background:none;border:none;color:var(--zn4);cursor:pointer;display:flex;align-items:center;gap:6px;width:100%;font-family:inherit" onclick="UI.loDemaOpen=!UI.loDemaOpen;renderTab()">
+      <span class="label">Lo demás · por lotes (${otras.length})</span>
+      <span style="color:var(--zn5)">${UI.loDemaOpen?'▾':'▸'}</span>
+    </button>
+    <div style="margin-top:8px">${bodyHtml}</div>
+  </div>`;
+}
+
+function weekOfMonth(dateStr){const d=Number(dateStr.slice(8));return Math.ceil(d/7);}
+function renderHechas(){
+  const arc=[...(S.archive||[])].sort((a,b)=>(b.doneAt||'').localeCompare(a.doneAt||''));
+  if(arc.length===0)return'<p class="empty" style="margin-top:10px">Todavía no archivaste tareas. Las que completes y pase el día se guardan acá, ordenadas por mes y semana.</p>';
+  // agrupar por mes
+  const byMonth={};
+  arc.forEach(t=>{const m=(t.doneAt||'').slice(0,7);(byMonth[m]=byMonth[m]||[]).push(t);});
+  const months=Object.keys(byMonth).sort().reverse();
+  return`<p style="font-size:11px;color:var(--zn5);margin:10px 0">📦 Tus tareas completadas, por mes y semana. Tu historial real de lo que lograste.</p>`+
+  months.map(m=>{
+    const[y,mm]=m.split('-');
+    const list=byMonth[m];
+    const open=UI.openGroups.includes('mes'+m);
+    // agrupar por semana
+    const byWeek={};list.forEach(t=>{const w=weekOfMonth(t.doneAt);(byWeek[w]=byWeek[w]||[]).push(t);});
+    const weeks=Object.keys(byWeek).sort((a,b)=>a-b);
+    return`<div class="group-card">
+      <button class="group-hdr" onclick="toggleGroup('mes${m}')">
+        <div class="group-hdr-left"><span style="font-size:15px;font-weight:600;text-transform:capitalize">${MONTHS[Number(mm)-1]} ${y}</span></div>
+        <span style="font-size:12px;color:var(--zn5)">${list.length} ✓ ${open?'▾':'▸'}</span>
+      </button>
+      ${open?`<div class="group-body">${weeks.map(w=>`
+        <div style="margin-bottom:10px">
+          <div style="font-size:12px;font-weight:700;color:var(--cyan);margin-bottom:4px">Semana ${w} · ${byWeek[w].length} tareas</div>
+          ${byWeek[w].map(t=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bg3)">
+            ${t.abc?`<span class="abc-badge" style="width:18px;height:18px;font-size:10px;background:${(ABCDE.find(x=>x.k===t.abc)||{}).color||'var(--bg3)'};color:#0a0a0a">${t.abc}</span>`:''}
+            <span style="flex:1;font-size:13px;color:var(--zn3)">${esc(t.text)}</span>
+            ${t.batch?`<span class="chip">${esc(t.batch)}</span>`:''}
+          </div>`).join('')}
+        </div>`).join('')}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+const tabs={
+  hoy(){
+    const tdate=todayStr();
+    const mantra=MANTRAS[new Date().getDate()%MANTRAS.length];
+    const todayT=S.tasks.filter(t=>t.dayDate===tdate);
+    const principales=todayT.filter(t=>t.main).sort((a,b)=>((a.isFrog?'0':'1')+(a.time||'99:99')).localeCompare((b.isFrog?'0':'1')+(b.time||'99:99')));
+    const otras=todayT.filter(t=>!t.main);
+    const timed=todayT.filter(t=>t.time&&!t.done).sort((a,b)=>a.time.localeCompare(b.time));
+    const plan={};todayT.forEach(t=>{if(t.pomoGoal){const k=t.batch||'Sin lote';plan[k]=(plan[k]||0)+t.pomoGoal;}});
+    const slots=[0,1,2].map(i=>{
+      const t=principales[i];
+      if(!t)return`<div class="card dash">Hueco libre — promové una tarea o agregala desde Banco</div>`;
+      return renderPrincipalCard(t);
+    }).join('');
+    const planKeys=Object.keys(plan);
+    return`
+      <p style="color:var(--cyan);font-size:13px;font-weight:500;margin-bottom:12px">${esc(mantra)}</p>
+      ${UI.rolled&&(UI.rolled.undone||UI.rolled.done)?`<div class="banner"><p>${UI.rolled.undone?`Volví ${UI.rolled.undone} tarea${UI.rolled.undone>1?'s':''} sin hacer al Banco (↩ No realizadas). `:''}${UI.rolled.done?`Archivé ${UI.rolled.done} completada${UI.rolled.done>1?'s':''} en Banco › Hechas.`:''}</p><button class="btn-del" onclick="UI.rolled=0;renderTab()">${ico(svX,16)}</button></div>`:''}
+      ${timed.length?`<div class="card mb2"><div class="label mb1">🕐 Con hora hoy</div>${timed.map(t=>`<div class="flex" style="margin-bottom:4px"><span style="color:var(--cyan);font-size:13px;font-variant-numeric:tabular-nums;min-width:45px">${esc(t.time)}</span><span style="font-size:14px">${esc(t.text)}</span></div>`).join('')}</div>`:''}
+      <div class="sec-hdr"><span class="label">Las 3 de hoy</span><span style="font-size:12px;color:var(--zn5)">${principales.length}/3</span></div>
+      ${slots}
+      ${planKeys.length?`<div class="card mt2"><div class="label mb1">🍅 Plan de hoy por lote</div><div class="chips">${planKeys.map(k=>`<span class="chip">${esc(k)}: ${plan[k]}</span>`).join('')}</div></div>`:''}
+      ${renderLoDemas(otras)}
+      ${S.tasks.length===0?`<div class="card mt3"><p style="font-weight:600;margin-bottom:8px">Cómo arrancar:</p><p style="font-size:13px;color:var(--zn4);line-height:1.6">1. <span style="color:var(--cyan)">Banco</span>: anotá todo lo que tenés en la cabeza.<br>2. <span style="color:var(--cyan)">Semana</span>: pasá pocas tareas a días.<br>3. Elegí <span style="color:var(--amber)">3 principales</span> y a ejecutar.</p></div>`:''}`;
+  },
+
+  semana(){
+    const today=wdKey();
+    const week=S.tasks.filter(t=>t.day==='semana');
+    const daysHtml=DAY_KEYS.map(d=>{
+      const list=S.tasks.filter(t=>t.day===d);
+      const isT=d===today;const open=UI.openDay===d;
+      return`<div class="group-card ${isT?'cyan':''}">
+        <button class="acc-hdr" onclick="UI.openDay=UI.openDay==='${d}'?'':'${d}';renderTab()">
+          <div class="group-hdr-left"><span class="acc-title ${isT?'':''}" style="${isT?'color:var(--cyan)':''}">${DAY_LABEL[d]}</span>${isT?'<span style="font-size:10px;background:var(--cyan);color:#09090b;padding:2px 7px;border-radius:20px;font-weight:700">hoy</span>':''}</div>
+          <span class="acc-meta">${list.filter(t=>t.done).length}/${list.length} ${open?'▾':'▸'}</span>
+        </button>
+        ${open?`<div class="acc-body">
+          ${list.length===0?'<p class="empty">Día libre. No lo llenes de más.</p>':''}
+          ${list.map(t=>`<div class="flex" style="margin-bottom:8px">
+            <div class="chk-sm ${t.done?'on':''}" onclick="toggle('${t.id}');renderTab()">${t.done?ico(svCheck,12):''}</div>
+            <span style="font-size:14px;flex:1;margin:0 8px;${t.done?'text-decoration:line-through;color:var(--zn5)':''}">${t.main?'⭐ ':''}${t.isFrog?'🐸 ':''}${t.time?t.time+' ':''}${esc(t.text)}</span>
+            <button class="btn-sm" onclick="move('${t.id}','semana');renderTab()">↩</button>
+          </div>`).join('')}
+          <div class="row mt1">
+            <input id="sem-inp-${d}" placeholder="Añadir a este día…" onkeydown="if(event.key==='Enter'){addTask(this.value,'${d}');this.value='';renderTab()}"/>
+            <button class="btn-icon" onclick="const el=document.getElementById('sem-inp-${d}');addTask(el.value,'${d}');el.value='';renderTab()">${ico(svPlus)}</button>
+          </div>
+        </div>`:''}
+      </div>`;
+    }).join('');
+    return`<h2>Mi semana</h2><p class="sub">Banco → Esta semana → cada día.</p>
+      <div class="card cyan mb2">
+        <div class="sec-hdr mb1"><span class="label" style="color:var(--cyan)">📋 Esta semana</span><span class="${week.length>7?'warn':'acc-meta'}">${week.length}${week.length>7?' · demasiadas':''}</span></div>
+        ${week.length===0?'<p class="empty">Vacío. Mandá tareas acá desde el Banco con "📌 esta semana".</p>':week.map(t=>`<div class="card" style="margin-bottom:6px;padding:10px">
+          <div class="flex"><span style="font-size:14px;flex:1">${esc(t.text)}</span>
+            <button class="btn-sm" style="margin-right:4px" onclick="window._pickFor=window._pickFor==='${t.id}'?null:'${t.id}';renderTab()">→ día</button>
+            <button class="btn-sm" onclick="move('${t.id}','banco');renderTab()">↩</button>
+          </div>
+          ${window._pickFor===t.id?`<div class="chips mt1">${DAY_KEYS.map(d=>`<button class="chip ${d===today?'on':''}" onclick="move('${t.id}','${d}');window._pickFor=null;renderTab()">${DAY_SHORT[d]}</button>`).join('')}</div>`:''}</div>`).join('')}
+      </div>
+      ${daysHtml}`;
+  },
+
+  cal(){
+    const[y,m]=UI.calYm.split('-').map(Number);
+    const first=new Date(y,m-1,1);const lead=monIdx(first);const dim=new Date(y,m,0).getDate();
+    const cells=[];for(let i=0;i<lead;i++)cells.push(null);for(let d=1;d<=dim;d++)cells.push(`${y}-${pad(m)}-${pad(d)}`);
+    const tdate=todayStr();
+    const selT=S.tasks.filter(t=>t.dayDate===UI.calSel);
+    return`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <button class="btn-icon" onclick="calShift(-1)">${ico(svLeft)}</button>
+      <h2 style="font-size:18px">${MONTHS[m-1]} ${y}</h2>
+      <button class="btn-icon" onclick="calShift(1)">${ico(svRight)}</button>
+    </div>
+    <div class="cal-grid mb1">${['lu','ma','mi','ju','vi','sá','do'].map(d=>`<div class="cal-hdr">${d}</div>`).join('')}</div>
+    <div class="cal-grid mb2">${cells.map((ds,i)=>{
+      if(!ds)return`<div></div>`;
+      const day=Number(ds.slice(8));const n=S.tasks.filter(t=>t.dayDate===ds).length;
+      const isT=ds===tdate;const isS=ds===UI.calSel;
+      return`<button class="cal-cell ${isS?'sel':isT?'today':''}" onclick="UI.calSel='${ds}';renderTab()">${day}${n>0?`<div class="cal-dot ${isS?'sel-dot':''}"></div>`:''}</button>`;
+    }).join('')}</div>
+    <p style="font-size:14px;font-weight:700;color:var(--cyan);margin-bottom:10px">${UI.calSel===tdate?'Hoy':UI.calSel.split('-').reverse().join('/')} · ${selT.length} tarea${selT.length!==1?'s':''}</p>
+    ${selT.length===0?'<p class="empty">Sin tareas este día. Aparecen cuando les asignás un día en Semana.</p>':selT.map(t=>`<div class="card" style="margin-bottom:6px;padding:10px"><div class="flex">
+      <div class="chk-sm ${t.done?'on':''}" onclick="toggle('${t.id}');renderTab()">${t.done?ico(svCheck,12):''}</div>
+      <span style="font-size:14px;flex:1;margin:0 8px;${t.done?'text-decoration:line-through;color:var(--zn5)':''}">${t.isFrog?'🐸 ':''}${esc(t.text)}</span>
+      ${t.time?`<span style="font-size:11px;color:var(--cyan);font-variant-numeric:tabular-nums">${esc(t.time)}</span>`:''}
+    </div></div>`).join('')}`;
+  },
+
+  banco(){
+    const bank=S.tasks.filter(t=>t.day==='banco');
+    const noReal=bank.filter(t=>t.unfinished&&!t.abc);
+    const gkeys=[...ABCDE.map(x=>x.k),'sin'];
+    const renderBankCard=(t)=>{
+      const edOpen=UI.editIds.has(t.id);
+      return`<div class="bank-card">
+        <p style="font-weight:600;margin-bottom:4px">${t.unfinished?'<span style="color:var(--red)">↩ </span>':''}${esc(t.text)}</p>
+        ${t.subtasks.length?`<p style="font-size:11px;color:var(--zn5);margin-bottom:4px">${t.subtasks.filter(s=>s.done).length}/${t.subtasks.length} pasos</p>`:''}
+        ${t.note&&!edOpen?`<p style="font-size:11px;color:var(--zn5);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📝 ${esc(t.note)}</p>`:''}
+        <div class="abc-row">${ABCDE.map(x=>`<button class="abc-btn" style="${t.abc===x.k?`background:${x.color};color:#0a0a0a`:'background:var(--bg3);color:var(--zn4)'}" onclick="patch('${t.id}',{abc:'${t.abc===x.k?'':x.k}',unfinished:false});renderTab()">${x.k}</button>`).join('')}</div>
+        <div class="trow-actions">
+          <button class="btn-sm" onclick="move('${t.id}','semana');renderTab()">📌 esta semana</button>
+          <button class="btn-sm" onclick="toggleEdit('${t.id}')">${ico(svPen,11)} editar</button>
+          <button class="btn-sm" onclick="window._pickDay='${t.id}';renderTab()">📅 día</button>
+          <button class="btn-sm" style="color:var(--red)" onclick="if(confirm('¿Borrar?')){delTask('${t.id}');renderTab()}">borrar</button>
+        </div>
+        ${window._pickDay===t.id?`<div class="chips mt1">${DAY_KEYS.map(d=>`<button class="chip" onclick="move('${t.id}','${d}');window._pickDay=null;renderTab()">${DAY_SHORT[d]}</button>`).join('')}</div>`:''}
+        ${edOpen?renderTaskEditor(t,true):''}
+      </div>`;
+    };
+    const bancoHtml=`<div>
+      <div class="row mb2">
+        <input id="banco-inp" placeholder="Nueva tarea…" onkeydown="if(event.key==='Enter'){addTask(this.value,'banco');this.value='';renderTab()}" style="flex:1"/>
+        <button class="btn-icon" onclick="const el=document.getElementById('banco-inp');addTask(el.value,'banco');el.value='';renderTab()">${ico(svPlus)}</button>
+      </div>
+      <p style="font-size:11px;color:var(--zn5);margin-bottom:12px">Nuevas → "Sin clasificar". Tocá A·B·C·D·E para agrupar.</p>
+      ${bank.length===0?'<p class="empty">Banco vacío. Volcá todo lo que tenés en la cabeza.</p>':''}
+      ${noReal.length?`<div class="group-card" style="border-color:var(--red)">
+        <button class="group-hdr" onclick="toggleGroup('nr')">
+          <div class="group-hdr-left"><div class="abc-badge" style="background:var(--red);color:#0a0a0a">↩</div><span style="font-size:14px">No realizadas — re-clasificá</span></div>
+          <span style="font-size:12px;color:var(--zn5)">${noReal.length} ${UI.openGroups.includes('nr')?'▾':'▸'}</span>
+        </button>
+        ${UI.openGroups.includes('nr')?`<div class="group-body">${noReal.map(renderBankCard).join('')}</div>`:''}
+      </div>`:''}
+      ${gkeys.map(g=>{
+        const meta=ABCDE.find(x=>x.k===g);
+        const list=bank.filter(t=>(t.abc||'')===(g==='sin'?'':g)&&!(t.unfinished&&!t.abc));
+        if(!list.length)return'';
+        const isOpen=UI.openGroups.includes(g);
+        return`<div class="group-card">
+          <button class="group-hdr" onclick="toggleGroup('${g}')">
+            <div class="group-hdr-left">
+              ${meta?`<div class="abc-badge" style="background:${meta.color};color:#0a0a0a">${meta.k}</div>`:'<div class="abc-badge" style="background:var(--bg3);color:var(--zn5)">?</div>'}
+              <span style="font-size:14px">${meta?meta.label:'Sin clasificar'}</span>
+            </div>
+            <span style="font-size:12px;color:var(--zn5)">${list.length} ${isOpen?'▾':'▸'}</span>
+          </button>
+          ${isOpen?`<div class="group-body">${list.map(renderBankCard).join('')}</div>`:''}
+        </div>`;
+      }).join('')}
+    </div>`;
+    const ideasHtml=`<div>
+      <div class="row mb2">
+        <input id="idea-inp" placeholder="Anotá una idea rápida…" onkeydown="if(event.key==='Enter'){addIdea(this.value);this.value='';renderTab()}" style="flex:1"/>
+        <button class="btn-icon" onclick="const el=document.getElementById('idea-inp');addIdea(el.value);el.value='';renderTab()">${ico(svPlus)}</button>
+      </div>
+      ${S.ideas.length===0?'<p class="empty">Sin ideas guardadas.</p>':S.ideas.map(i=>`<div class="idea-item"><span style="font-size:18px">💡</span><span class="idea-text">${esc(i.text)}</span><button class="btn-sm" onclick="promoteIdea('${i.id}')">→ tarea</button><button class="btn-del" onclick="S.ideas=S.ideas.filter(x=>x.id!=='${i.id}');save();renderTab()">${ico(svX,14)}</button></div>`).join('')}
+    </div>`;
+    return`<div class="seg">
+      <button class="${UI.bancoSub==='banco'?'on':''}" onclick="UI.bancoSub='banco';renderTab()">Tareas</button>
+      <button class="${UI.bancoSub==='hechas'?'on':''}" onclick="UI.bancoSub='hechas';renderTab()">Hechas</button>
+      <button class="${UI.bancoSub==='ideas'?'on':''}" onclick="UI.bancoSub='ideas';renderTab()">Ideas</button>
+    </div>
+    ${UI.bancoSub==='banco'?bancoHtml:UI.bancoSub==='hechas'?renderHechas():ideasHtml}`;
+  },
+
+  metas(){
+    const tdate=todayStr();
+    const frog=S.tasks.find(t=>t.isFrog&&t.dayDate===tdate&&!t.done);
+    const dates=last7();
+    const pomos=dates.map(d=>S.pomoEvents.filter(e=>e.date===d).length);
+    const tareas=dates.map(d=>S.tasks.filter(t=>t.doneAt===d).length+(S.archive||[]).filter(a=>a.doneAt===d).length);
+    const maxP=Math.max(1,...pomos),maxT=Math.max(1,...tareas);
+    const month=tdate.slice(0,7);
+    const byCat={};S.pomoEvents.filter(e=>e.date.slice(0,7)===month).forEach(e=>{const k=e.cat||'Sin lote';byCat[k]=(byCat[k]||0)+1;});
+    const ck=Object.keys(byCat).sort((a,b)=>byCat[b]-byCat[a]);
+    const maxC=Math.max(1,...ck.map(k=>byCat[k]));
+    const wd=weekDates();
+    const loteHtml=S.taskCats.length===0?'<p class="empty">Creá lotes abajo en "Mis categorías".</p>':S.taskCats.map(cat=>{
+      const plan=S.lotePlan[cat]||{};
+      const expT=DAY_KEYS.reduce((s,d)=>s+(plan[d]||0),0);
+      const actT=DAY_KEYS.reduce((s,d)=>s+S.pomoEvents.filter(e=>e.cat===cat&&e.date===wd[d]).length,0);
+      const isO=UI.loteOpen===cat;
+      return`<div class="group-card mb1">
+        <button class="acc-hdr" onclick="UI.loteOpen=UI.loteOpen==='${esc(cat)}'?null:'${esc(cat)}';renderTab()">
+          <span class="acc-title">${esc(cat)}</span>
+          <span class="acc-meta">${actT} / ${expT} 🍅 ${isO?'▾':'▸'}</span>
+        </button>
+        ${isO?`<div class="acc-body">${DAY_KEYS.map(d=>{const exp=plan[d]||0;const act=S.pomoEvents.filter(e=>e.cat===cat&&e.date===wd[d]).length;return`<div class="lote-plan-row">
+          <span style="font-size:13px;width:36px;color:var(--zn4)">${DAY_SHORT[d]}</span>
+          <div class="stepper">
+            <button onclick="setLoteCell('${esc(cat)}','${d}',${exp-1})">−</button>
+            <span>${exp}</span>
+            <button onclick="setLoteCell('${esc(cat)}','${d}',${exp+1})">+</button>
+          </div>
+          <span style="font-size:11px;color:var(--zn5);margin-left:8px">esp · <span style="${act>=exp&&exp>0?'color:var(--green)':'color:var(--zn3)'}">${act} hechos</span></span>
+        </div>`;}).join('')}</div>`:''}
+      </div>`;
+    }).join('');
+    return`<h2>Metas</h2>
+      <div class="goal-box mb1">
+        <div class="label" style="color:var(--cyan);margin-bottom:6px">🎯 Meta del MES</div>
+        <textarea rows="2" placeholder="Ej: Bajar la deuda un 20%" onchange="S.goals.month=this.value;save()">${esc(S.goals.month)}</textarea>
+      </div>
+      <div class="divider">↓ se logra con ↓</div>
+      <div class="goal-box mb1">
+        <div class="label" style="color:var(--amber);margin-bottom:6px">📅 Foco de la SEMANA</div>
+        <textarea rows="2" placeholder="Ej: Ordenar stock del depósito" onchange="S.goals.week=this.value;save()">${esc(S.goals.week)}</textarea>
+      </div>
+      <div class="divider">↓ se logra con ↓</div>
+      <div class="goal-box" style="border-color:var(--amberBorder);margin-bottom:16px">
+        <div class="label" style="color:var(--amber);margin-bottom:6px">🐸 Sapo de HOY</div>
+        ${frog?`<p style="font-size:16px;font-weight:600">${esc(frog.text)}</p>`:'<p class="empty">Marcá tu sapo en Hoy.</p>'}
+      </div>
+      <h2 class="mb1">🍅 Plan de lotes</h2>
+      <p class="sub">Expectativa de pomodoros por lote y día.</p>
+      ${loteHtml}
+      <h2 class="mt3 mb1">📊 Progreso</h2>
+      <div class="flex mb2">
+        <div class="card" style="flex:1;text-align:center;padding:12px"><div style="font-size:26px;font-weight:700;color:var(--cyan)">${S.pomoEvents.filter(e=>e.date===tdate).length}</div><div style="font-size:11px;color:var(--zn5)">🍅 hoy</div></div>
+        <div class="card" style="flex:1;text-align:center;padding:12px"><div style="font-size:26px;font-weight:700;color:var(--green)">${S.tasks.filter(t=>t.doneAt===tdate).length}</div><div style="font-size:11px;color:var(--zn5)">✓ tareas hoy</div></div>
+      </div>
+      ${renderBar('Pomodoros por día',pomos,dates,maxP,'#22d3ee')}
+      ${renderBar('Tareas hechas por día',tareas,dates,maxT,'#34d399')}
+      ${ck.length?`<div class="card mb2"><div class="label mb2">🍅 Pomodoros por lote (este mes)</div>${ck.map(k=>`<div style="margin-bottom:8px"><div class="flex" style="justify-content:space-between;margin-bottom:3px"><span style="font-size:13px;color:var(--zn3)">${esc(k)}</span><span style="font-size:12px;color:var(--zn4)">${byCat[k]} 🍅</span></div><div style="height:8px;background:var(--bg3);border-radius:4px"><div style="height:8px;border-radius:4px;background:var(--cyan);width:${Math.round((byCat[k]/maxC)*100)}%"></div></div></div>`).join('')}</div>`:''}
+      <h2 class="mt3 mb2">🏷 Mis categorías</h2>
+      <div class="card mb2">
+        <div class="label mb2">Lotes de tareas</div>
+        <div class="chips mb2">${S.taskCats.map(c=>`<span class="chip">${esc(c)}<button class="btn-del" style="margin-left:3px" onclick="S.taskCats=S.taskCats.filter(x=>x!=='${esc(c)}');save();renderTab()">${ico(svX,11)}</button></span>`).join('')}</div>
+        <div class="row"><input id="tcat-inp" placeholder="Nueva categoría…" onkeydown="if(event.key==='Enter'){addTCat(this.value);this.value='';renderTab()}"/><button class="btn-icon" onclick="const el=document.getElementById('tcat-inp');addTCat(el.value);el.value='';renderTab()">${ico(svPlus)}</button></div>
+      </div>
+      <div class="card">
+        <div class="label mb2">Rubros de gasto</div>
+        <div class="chips mb2">${S.expCats.map(c=>`<span class="chip">${esc(c)}<button class="btn-del" style="margin-left:3px" onclick="S.expCats=S.expCats.filter(x=>x!=='${esc(c)}');save();renderTab()">${ico(svX,11)}</button></span>`).join('')}</div>
+        <div class="row"><input id="ecat-inp" placeholder="Nueva categoría…" onkeydown="if(event.key==='Enter'){addECat(this.value);this.value='';renderTab()}"/><button class="btn-icon" onclick="const el=document.getElementById('ecat-inp');addECat(el.value);el.value='';renderTab()">${ico(svPlus)}</button></div>
+      </div>`;
+  },
+
+  gastos(){
+    const tdate=todayStr();
+    const prefix=UI.gPeriod==='dia'?tdate:UI.gPeriod==='mes'?tdate.slice(0,7):tdate.slice(0,4);
+    const inP=S.expenses.filter(e=>e.date.startsWith(prefix));
+    const total=inP.reduce((s,e)=>s+Number(e.amount||0),0);
+    const byCat={};inP.forEach(e=>{const k=e.cat||'Sin rubro';byCat[k]=(byCat[k]||0)+Number(e.amount||0);});
+    const ck=Object.keys(byCat).sort((a,b)=>byCat[b]-byCat[a]);
+    const todayL=S.expenses.filter(e=>e.date===tdate);
+    if(!window._expCat)window._expCat='';
+    return`<h2>Gastos</h2>
+      <div class="total-box">
+        <div class="period-tabs">
+          ${[['dia','Día'],['mes','Mes'],['ano','Año']].map(([k,l])=>`<button class="${UI.gPeriod===k?'on':''}" onclick="UI.gPeriod='${k}';renderTab()">${l}</button>`).join('')}
+        </div>
+        <div class="total-lbl">Total ${UI.gPeriod==='dia'?'de hoy':UI.gPeriod==='mes'?'del mes':'del año'}</div>
+        <div class="total-val">${money(total)}</div>
+        ${ck.length?`<div class="total-cats">${ck.map(k=>`<div class="total-cat-row"><span class="total-cat-key">${esc(k)}</span><span style="font-variant-numeric:tabular-nums">${money(byCat[k])}</span></div>`).join('')}</div>`:''}
+      </div>
+      <div class="card mb2">
+        <div class="row mb2"><input id="exp-desc" placeholder="¿En qué?" style="flex:1"/><input id="exp-amt" type="number" placeholder="$" style="width:90px"/></div>
+        <input id="exp-det" placeholder="Detalle opcional: proveedor, nota…" class="mb2"/>
+        <div class="chips mb2" id="exp-cat-chips">${S.expCats.map(c=>`<button class="chip ${window._expCat===c?'on':''}" onclick="window._expCat=window._expCat==='${esc(c)}'?'':'${esc(c)}';renderTab()">${esc(c)}</button>`).join('')}<button class="chip" onclick="addCatPrompt('exp','')">＋</button></div>
+        <button class="btn-cyan" style="width:100%;padding:12px" onclick="submitExpense()">${ico(svPlus)} Agregar gasto</button>
+      </div>
+      <div class="label mb2">Hoy</div>
+      ${todayL.length===0?'<p class="empty">Sin gastos cargados hoy.</p>':todayL.map(e=>`<div class="exp-item"><div class="exp-item-row"><span class="exp-desc">${esc(e.desc)}</span><span class="exp-amt">${money(e.amount)}</span><button class="btn-del" onclick="S.expenses=S.expenses.filter(x=>x.id!=='${e.id}');save();renderTab()">${ico(svX,14)}</button></div><div class="exp-meta">${e.cat?`<span class="exp-cat">${esc(e.cat)}</span>`:''} ${e.detail?`<span class="exp-det">${esc(e.detail)}</span>`:''}</div></div>`).join('')}`;
+  }
+};
+
+function submitExpense(){
+  const desc=document.getElementById('exp-desc').value.trim();
+  const amt=parseFloat(document.getElementById('exp-amt').value);
+  const det=document.getElementById('exp-det').value.trim();
+  if(!desc||isNaN(amt))return;
+  S.expenses.unshift({id:uid(),desc,amount:amt,cat:window._expCat||'',detail:det,date:todayStr()});
+  window._expCat='';save();renderTab();
+}
+
+function renderBar(title,data,dates,max,color){
+  return`<div class="card mb2"><div class="label mb2">${title}</div>
+    <div class="bar-wrap">${data.map((v,i)=>`<div class="bar-col"><div class="bar-val">${v}</div><div class="bar-fill" style="height:${Math.round((v/max)*70)}px;min-height:${v>0?3:0}px;background:${color}"></div><div class="bar-lbl">${shortDay(dates[i])}</div></div>`).join('')}
+    </div></div>`;
+}
+
+/* helpers */
+function toggleGroup(g){const i=UI.openGroups.indexOf(g);i>=0?UI.openGroups.splice(i,1):UI.openGroups.push(g);renderTab();}
+function addIdea(text){const t=text.trim();if(!t)return;S.ideas.unshift({id:uid(),text:t});save();}
+function promoteIdea(id){const i=S.ideas.find(x=>x.id===id);if(i){addTask(i.text,'banco');S.ideas=S.ideas.filter(x=>x.id!==id);save();renderTab();}}
+function addTCat(n){n=(n||'').trim();if(n&&!S.taskCats.includes(n)){S.taskCats.push(n);save();}}
+function addECat(n){n=(n||'').trim();if(n&&!S.expCats.includes(n)){S.expCats.push(n);save();}}
+function setLoteCell(cat,day,n){if(!S.lotePlan[cat])S.lotePlan[cat]={};S.lotePlan[cat][day]=Math.max(0,n);save();renderTab();}
+function calShift(d){let[y,m]=UI.calYm.split('-').map(Number);m+=d;if(m<1){m=12;y--;}if(m>12){m=1;y++;}UI.calYm=`${y}-${pad(m)}`;renderTab();}
+
+/* ============================================================
+   INIT
+============================================================ */
+loadState();
+render();
+initFirebase();
+</script>
+</body>
+</html>
