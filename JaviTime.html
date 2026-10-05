@@ -149,6 +149,8 @@ select{appearance:none;-webkit-appearance:none;background-image:linear-gradient(
 .titem .body .tx{display:block;overflow-wrap:anywhere}
 .titem .meta{display:flex;gap:4px 10px;flex-wrap:wrap;margin-top:3px;font-size:12px;color:var(--mu)}
 .titem .meta .miss{color:var(--bad)}
+.tagp{color:var(--tc);border:1px solid var(--tc);border-radius:99px;padding:0 7px;font-size:11px;line-height:17px;white-space:nowrap}
+.tagrow{display:inline-flex;gap:4px;flex-wrap:wrap;margin-left:6px;vertical-align:middle}
 .hoybtn{flex:none;font-size:13px;font-weight:600;color:var(--amber);padding:6px 10px;border-radius:10px;background:var(--s2)}
 
 /* score */
@@ -301,6 +303,9 @@ const DEF_ECATS=[
  {id:'serv',name:'Servicios',emoji:'💡',budget:0},{id:'salud',name:'Salud',emoji:'💊',budget:0},
  {id:'ropa',name:'Ropa',emoji:'👕',budget:0},{id:'gym',name:'Gym',emoji:'🏋️',budget:0},
  {id:'otros',name:'Otros',emoji:'📌',budget:0}];
+const DEF_TAGS=[{id:'rapida',name:'Rápida',color:'#7BC59A'},{id:'esperando',name:'Esperando a alguien',color:'#B79CF0'},{id:'plata',name:'Plata',color:'#F0A04B'},{id:'casa',name:'Casa',color:'#B9B2A3'}];
+const PALETTE=['#5AB0E8','#7BC59A','#E58BA0','#B79CF0','#62CFCB','#F0A04B','#FF8A65','#9AA7C7','#D9C36A','#8FD16A'];
+const pickColor=n=>PALETTE[n%PALETTE.length];
 const LEVELS={u:{name:'Urgente, hacer ya',short:'Urgente',c:'#EF6F6C',o:0},a:{name:'Importante',short:'Importante',c:'#F0A04B',o:1},n:{name:'Normal',short:'Normal',c:'#8D96AC',o:2},s:{name:'Algún día',short:'Algún día',c:'#6C7CA8',o:3}};
 const TIPOS={dia:'Por día',sem:'Semanal',mes:'Mensual'};
 const AREAS={j:{name:'Javicard',c:'#5AB0E8'},m:{name:'Mente',c:'#B79CF0'},c:{name:'Cuerpo',c:'#FF8A65'}};
@@ -309,6 +314,7 @@ const HORIZ={mes:'Este mes',tri:'Trimestre',ano:'Este año'};
 /* ---------- estado ---------- */
 const KEY='javitime2', FB_PATH='javitime2';
 const FIREBASE_CONFIG={apiKey:"AIzaSyACdZKT1NIqgav-7xqVinH06DgkM7_dolA",authDomain:"organizacion-93e07.firebaseapp.com",databaseURL:"https://organizacion-93e07-default-rtdb.firebaseio.com",projectId:"organizacion-93e07",storageBucket:"organizacion-93e07.firebasestorage.app",messagingSenderId:"650906241185",appId:"1:650906241185:web:2f9060552095d4711448e0"};
+let bForm={b:'',l:'n',t:'dia',tags:[]}, bancoTag='', curSheet=null;
 let state, view=today(), tab='hoy', gPer='mes', gRef=today(), bancoF='todas', draft=null, lastDay=today();
 let fbRef=null, fbReady=false, saveT=null, quietUntil=0;
 
@@ -317,6 +323,7 @@ function normalize(p){
   p=p||{};const saved=!!p.v;
   const s={v:1,
     tasks:arr(p.tasks),boxes:arr(p.boxes),
+    tags:p.tagsInit?arr(p.tags):DEF_TAGS.map(t=>({...t})),tagsInit:1,
     blocks:arr(p.blocks).length?arr(p.blocks):DEF_BLOCKS.map(b=>({...b})),
     fixed:saved?arr(p.fixed):DEF_FIXED.map(f=>({...f,days:[...f.days]})),
     dayInit:p.dayInit||{},principals:p.principals||{},scores:p.scores||{},
@@ -325,6 +332,7 @@ function normalize(p){
     budget:+p.budget||0,goals:arr(p.goals),
     settings:Object.assign({closeAlarm:true},p.settings||{})};
   s.fixed.forEach(f=>f.days=arr(f.days).map(Number));
+  s.tasks.forEach(t=>t.tags=arr(t.tags));
   Object.keys(s.principals).forEach(k=>{const a=arr(s.principals[k]);s.principals[k]=[a[0]||'',a[1]||'',a[2]||''];});
   return s;
 }
@@ -358,12 +366,17 @@ function initFB(){
 }
 
 /* ---------- lógica de días ---------- */
-const blockOf=id=>state.blocks.find(b=>b.id===id)||{id:'',name:'Sin bloque',emoji:'•',color:'#8D96AC'};
+const blockOf=id=>state.blocks.find(b=>b.id===id)||{id:'',name:'Tareas sueltas',emoji:'📝',color:'#8D96AC'};
+const tagOf=id=>state.tags.find(t=>t.id===id);
+const tagPills=t=>{const a=(t.tags||[]).map(tagOf).filter(Boolean);return a.length?'<span class="tagrow">'+a.map(g=>`<span class="tagp" style="--tc:${g.color}">${esc(g.name)}</span>`).join('')+'</span>':''};
+const blockOpts=sel=>`<option value="" ${!sel?'selected':''}>📝 Sin bloque (tarea suelta)</option>`+state.blocks.map(b=>`<option value="${b.id}" ${b.id===sel?'selected':''}>${b.emoji} ${esc(b.name)}</option>`).join('')+'<option value="__new">➕ Nuevo bloque…</option>';
+const catOpts=sel=>state.ecats.map(c=>`<option value="${c.id}" ${c.id===sel?'selected':''}>${c.emoji} ${esc(c.name)}</option>`).join('')+'<option value="__new">➕ Nueva categoría…</option>';
+const tagChips=(sel,act)=>state.tags.map(g=>`<button class="chip ${sel.includes(g.id)?'on':''}" style="--cc:${g.color}" data-act="${act}" data-id="${g.id}">${esc(g.name)}</button>`).join('');
 const catOf=id=>state.ecats.find(c=>c.id===id)||{id:'',name:'Otros',emoji:'📌',budget:0};
 const boxesOf=d=>state.boxes.filter(b=>b.date===d).sort((a,b)=>a.start-b.start);
 const tasksOfBox=id=>state.tasks.filter(t=>t.boxId===id&&t.status==='plan');
 const banco=()=>state.tasks.filter(t=>t.status==='banco'&&!t.done);
-function newTask(o){return Object.assign({id:uid(),text:'',blockId:'',tipo:'dia',nivel:'n',due:'',status:'banco',date:'',boxId:'',done:false,doneAt:'',reprog:0,missed:false,missedFrom:'',created:today()},o)}
+function newTask(o){return Object.assign({id:uid(),text:'',blockId:'',tipo:'dia',nivel:'n',due:'',status:'banco',date:'',boxId:'',done:false,doneAt:'',reprog:0,tags:[],missed:false,missedFrom:'',created:today()},o)}
 
 function rollover(){
   const t=today();let ch=false;
@@ -412,7 +425,7 @@ function renderHeader(){
     const t={banco:['Banco de tareas','Todo lo pendiente, agrupado por bloque'],gastos:['Gastos personales','Lo que gastás y cuánto te queda'],metas:['Metas','Tu rumbo y cómo vienen tus días']}[tab];
     h=`<div class="htitle"><h1>${t[0]}</h1><div class="sub">${t[1]}</div></div>`;
   }
-  h+=`<span class="sync ${window._sync||''}" id="syncDot" title="Sincronización"></span><button class="iconbtn" data-act="settings" aria-label="Ajustes">⚙︎</button>`;
+  h+=`<span class="sync ${window._sync||''}" id="syncDot" title="Sincronización"></span><button class="iconbtn" data-act="settings" aria-label="Configuración">⚙︎</button>`;
   $('#hdr').innerHTML=h;
 }
 
@@ -458,7 +471,7 @@ function heroHTML(){
   return `<div class="hero"><div class="hk">Sin cajas por delante</div><div class="hbig">${hm(n)}</div>
     <div class="hname">Armá una caja o sacá algo del banco.</div></div>`;
 }
-function taskLi(t){return `<li class="${t.done?'done':''}"><button class="ck ${t.done?'on':''}" data-act="tg" data-id="${t.id}" aria-label="Marcar"></button><span class="tx">${esc(t.text)}</span></li>`}
+function taskLi(t){return `<li class="${t.done?'done':''}"><button class="ck ${t.done?'on':''}" data-act="tg" data-id="${t.id}" aria-label="Marcar"></button><span class="tx">${esc(t.text)}${tagPills(t)}</span></li>`}
 
 function viewHoy(){
   const boxes=boxesOf(view), isT=view===today(), n=nowMin(), past=view<today();
@@ -526,7 +539,7 @@ function viewHoy(){
   const dayTot=state.expenses.filter(e=>e.date===gd).reduce((a,e)=>a+e.amount,0);
   h+=`<div class="sec"><h2>Anotar gasto</h2><span class="side">${gd===today()?'Hoy':'Este día'}: ${money(dayTot)}</span></div>
     <div class="card stack">
-      <div class="row"><input id="qAmt" inputmode="decimal" placeholder="Monto" style="flex:0 0 38%"><select id="qCat" class="grow">${state.ecats.map(c=>`<option value="${c.id}">${c.emoji} ${esc(c.name)}</option>`).join('')}</select></div>
+      <div class="row"><input id="qAmt" inputmode="decimal" placeholder="Monto" style="flex:0 0 38%"><select id="qCat" class="grow">${catOpts(state.ecats[0]&&state.ecats[0].id)}</select></div>
       <div class="row"><input id="qDet" class="grow" placeholder="Detalle (opcional)"><button class="btn primary" data-act="qExp" data-d="${gd}">Anotar</button></div>
     </div>`;
 
@@ -544,26 +557,28 @@ function viewBanco(){
   const F={todas:all,miss:all.filter(t=>t.missed),dia:all.filter(t=>t.tipo==='dia'&&!t.missed),sem:all.filter(t=>t.tipo==='sem'),mes:all.filter(t=>t.tipo==='mes')};
   const names={todas:'Todas',miss:'No realizadas',dia:'Por día',sem:'Semanales',mes:'Mensuales'};
   let h=`<div class="card stack">
-    <input id="bTxt" placeholder="¿Qué tenés que hacer?">
-    <div class="row"><select id="bBlk" class="grow">${state.blocks.map(b=>`<option value="${b.id}">${b.emoji} ${esc(b.name)}</option>`).join('')}</select>
-      <select id="bTipo" class="grow">${Object.entries(TIPOS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
-    <div class="row"><select id="bLvl" class="grow">${Object.entries(LEVELS).map(([k,v])=>`<option value="${k}" ${k==='n'?'selected':''}>${v.name}</option>`).join('')}</select>
+    <div class="row"><input id="bTxt" class="grow" placeholder="¿Qué tenés que hacer?"><button class="btn primary" data-act="addBanco">Agregar</button></div>
+    <div class="row"><select id="bBlk" class="grow">${blockOpts(bForm.b)}</select>
+      <select id="bLvl" class="grow">${Object.entries(LEVELS).map(([k,v])=>`<option value="${k}" ${k===bForm.l?'selected':''}>${v.name}</option>`).join('')}</select></div>
+    <div class="row"><select id="bTipo" class="grow">${Object.entries(TIPOS).map(([k,v])=>`<option value="${k}" ${k===bForm.t?'selected':''}>${v}</option>`).join('')}</select>
       <input id="bDue" type="date" class="grow" title="Fecha (opcional)"></div>
-    <button class="btn primary block" data-act="addBanco">Agregar al banco</button>
+    <div class="chips" id="bTags">${tagChips(bForm.tags,'bTag')}<button class="chip" data-act="newTag" data-ctx="b">+ Etiqueta</button></div>
   </div>
   <div class="scroller" style="margin-top:14px">${Object.keys(F).map(k=>`<button class="chip ${bancoF===k?'on':''}" ${k==='miss'?'style="--cc:var(--bad)"':''} data-act="bf" data-f="${k}">${names[k]} ${F[k].length}</button>`).join('')}</div>`;
-  const list=F[bancoF];
+  if(state.tags.length)h+=`<div class="scroller" style="margin-top:6px">${state.tags.map(g=>`<button class="chip ${bancoTag===g.id?'on':''}" style="--cc:${g.color}" data-act="btf" data-id="${g.id}"># ${esc(g.name)}</button>`).join('')}</div>`;
+  const list=bancoTag?F[bancoF].filter(t=>(t.tags||[]).includes(bancoTag)):F[bancoF];
   if(!list.length){h+=`<div class="empty">${bancoF==='miss'?'Nada pendiente de días anteriores. Bien ahí.':'No hay tareas acá. Anotá arriba lo que tengas en la cabeza.'}</div>`;}
   const groups={};list.forEach(t=>{(groups[t.blockId]=groups[t.blockId]||[]).push(t)});
-  state.blocks.concat([{id:'',name:'Sin bloque',emoji:'•',color:'#8D96AC'}]).forEach(b=>{
+  state.blocks.concat([blockOf('')]).forEach(b=>{
     const g=groups[b.id];if(!g)return;
     g.sort((x,y)=>(LEVELS[x.nivel]||LEVELS.n).o-(LEVELS[y.nivel]||LEVELS.n).o||(y.reprog||0)-(x.reprog||0));
     h+=`<div class="grp" style="--c:${b.color}"><div class="grph"><span class="dot"></span>${b.emoji} ${esc(b.name)} <span class="cnt">${g.length}</span></div><div class="card" style="padding:4px 14px">`+
       g.map(t=>{const L=LEVELS[t.nivel]||LEVELS.n;
-        const meta=[`<span style="color:${L.c}">${L.short}</span>`,TIPOS[t.tipo]||''];
-        if(t.due)meta.push('para el '+parse(t.due).getDate()+'/'+(parse(t.due).getMonth()+1));
+        const meta=[`<span style="color:${L.c}">${L.short}</span>`,`<span>${TIPOS[t.tipo]||''}</span>`];
+        if(t.due)meta.push('<span>para el '+parse(t.due).getDate()+'/'+(parse(t.due).getMonth()+1)+'</span>');
         if(t.missed)meta.push(`<span class="miss">no se hizo${t.missedFrom?' el '+parse(t.missedFrom).getDate()+'/'+(parse(t.missedFrom).getMonth()+1):''}</span>`);
-        if(t.reprog)meta.push('↻ '+t.reprog);
+        if(t.reprog)meta.push('<span>↻ '+t.reprog+'</span>');
+        (t.tags||[]).map(tagOf).filter(Boolean).forEach(g=>meta.push(`<span class="tagp" style="--tc:${g.color}">${esc(g.name)}</span>`));
         return `<div class="titem"><button class="ck" data-act="tg" data-id="${t.id}" aria-label="Marcar hecha"></button><span class="lvl" style="background:${L.c}"></span>
           <button class="body" data-act="editTask" data-id="${t.id}"><span class="tx">${esc(t.text)}</span><span class="meta">${meta.join('')}</span></button>
           <button class="hoybtn" data-act="toHoy" data-id="${t.id}">Hoy</button></div>`}).join('')+'</div></div>';
@@ -604,7 +619,7 @@ function viewGastos(){
   h+='</div>';
   // agregar
   h+=`<div class="sec"><h2>Anotar gasto</h2></div><div class="card stack">
-    <div class="row"><input id="gAmt" inputmode="decimal" placeholder="Monto" style="flex:0 0 38%"><select id="gCat" class="grow">${state.ecats.map(c=>`<option value="${c.id}">${c.emoji} ${esc(c.name)}</option>`).join('')}</select></div>
+    <div class="row"><input id="gAmt" inputmode="decimal" placeholder="Monto" style="flex:0 0 38%"><select id="gCat" class="grow">${catOpts(state.ecats[0]&&state.ecats[0].id)}</select></div>
     <div class="row"><input id="gDet" class="grow" placeholder="Detalle"><input id="gDate" type="date" value="${today()}" style="flex:0 0 42%"></div>
     <button class="btn primary block" data-act="gAdd">Anotar gasto</button></div>`;
   // por categoría
@@ -705,9 +720,10 @@ function openTask(id){
   const t=state.tasks.find(x=>x.id===id);if(!t)return;
   sheet(`<h3>Editar tarea</h3>
     <div class="lbl">Tarea</div><input id="eTxt" value="${esc(t.text)}">
-    <div class="lbl">Bloque</div><select id="eBlk">${state.blocks.map(b=>`<option value="${b.id}" ${b.id===t.blockId?'selected':''}>${b.emoji} ${esc(b.name)}</option>`).join('')}</select>
+    <div class="lbl">Bloque</div><select id="eBlk">${blockOpts(t.blockId)}</select>
     <div class="row" style="margin-top:0"><label class="grow"><div class="lbl">Tipo</div><select id="eTipo">${Object.entries(TIPOS).map(([k,v])=>`<option value="${k}" ${k===t.tipo?'selected':''}>${v}</option>`).join('')}</select></label>
       <label class="grow"><div class="lbl">Fecha</div><input id="eDue" type="date" value="${t.due||''}"></label></div>
+    <div class="lbl">Etiquetas</div><div class="chips" id="eTags">${tagChips(t.tags||[],'eTag')}<button class="chip" data-act="newTag" data-ctx="e">+ Etiqueta</button></div>
     <div class="lbl">Nivel</div><div class="chips" id="eLvl">${Object.entries(LEVELS).map(([k,v])=>`<button class="chip ${k===(t.nivel||'n')?'on':''}" style="--cc:${v.c}" data-act="eLvl" data-k="${k}">${v.name}</button>`).join('')}</div>
     ${t.reprog?`<div class="muted" style="font-size:13px;margin-top:12px">La pateaste ${t.reprog} ${t.reprog===1?'vez':'veces'}. ${t.reprog>=3?'Partila en algo más chico o borrala.':''}</div>`:''}
     <div class="shfoot"><button class="btn danger" data-act="eDel" data-id="${t.id}">Borrar</button><button class="btn primary" data-act="eSave" data-id="${t.id}">Guardar</button></div>`);
@@ -727,10 +743,14 @@ function openPick(slot){
 function openSettings(){
   const tOpts=sel=>{let o='';for(let m=DAY_START;m<DAY_END;m+=15)o+=`<option value="${m}" ${m===sel?'selected':''}>${hm(m)}</option>`;return o};
   const perm=('Notification' in window)?Notification.permission:'no';
-  sheet(`<h3>Ajustes</h3>
+  curSheet=openSettings;
+  sheet(`<h3>Configuración</h3><div class="muted" style="font-size:14px">Todo se puede editar: nombres, emojis y colores.</div>
     <div class="lbl">Bloques de tareas</div><div class="muted" style="font-size:13px;margin-bottom:8px">Agrupá lo que hacés en el mismo lugar o con la misma herramienta.</div>
     <div id="sBlocks">${state.blocks.map(b=>`<div class="srow2" data-bid="${b.id}"><input value="${esc(b.emoji)}" data-k="emoji" aria-label="Emoji"><input value="${esc(b.name)}" data-k="name" aria-label="Nombre"><input type="color" value="${b.color}" data-k="color" style="padding:2px;height:40px" aria-label="Color"><button class="x" data-act="sDelBlock" data-id="${b.id}" aria-label="Borrar bloque">✕</button></div>`).join('')}</div>
     <button class="link" data-act="sAddBlock">+ Agregar bloque</button>
+    <div class="lbl" style="margin-top:22px">Etiquetas</div><div class="muted" style="font-size:13px;margin-bottom:8px">Para marcar tareas sueltas o de cualquier bloque.</div>
+    <div id="sTags">${state.tags.map(g=>`<div class="srow2" data-tid="${g.id}" style="grid-template-columns:1fr 92px 32px"><input value="${esc(g.name)}" data-k="name" aria-label="Nombre"><input type="color" value="${g.color}" data-k="color" style="padding:2px;height:40px" aria-label="Color"><button class="x" data-act="sDelTag" data-id="${g.id}" aria-label="Borrar etiqueta">✕</button></div>`).join('')}</div>
+    <button class="link" data-act="sAddTag">+ Agregar etiqueta</button>
     <div class="lbl" style="margin-top:22px">Rutina fija</div><div class="muted" style="font-size:13px;margin-bottom:8px">Cajas que se crean solas cada semana, como tus entrenos.</div>
     <div id="sFixed">${state.fixed.map(f=>`<div class="fixrow" data-fid="${f.id}">
       <div class="row"><select data-k="blockId" class="grow">${state.blocks.map(b=>`<option value="${b.id}" ${b.id===f.blockId?'selected':''}>${b.emoji} ${esc(b.name)}</option>`).join('')}</select><input data-k="title" class="grow" value="${esc(f.title)}" placeholder="Nombre"><button class="x" data-act="sDelFix" data-id="${f.id}" aria-label="Borrar">✕</button></div>
@@ -738,6 +758,10 @@ function openSettings(){
       <div class="daytog">${DIAS.map((d,i)=>`<button class="${f.days.includes(i+1)?'on':''}" data-act="sDay" data-id="${f.id}" data-d="${i+1}">${d.slice(0,2)}</button>`).join('')}</div></div>`).join('')}</div>
     <button class="link" data-act="sAddFix">+ Agregar caja fija</button>
     <div class="muted" style="font-size:12px;margin-top:6px">Los cambios aplican a los días que todavía no abriste.</div>
+    <div class="lbl" style="margin-top:22px">Gastos: presupuesto general por mes</div><input id="gsBud" inputmode="decimal" value="${state.budget||''}" placeholder="Sin presupuesto">
+    <div class="lbl">Categorías de gasto <span class="muted">(presupuesto mensual opcional)</span></div>
+    ${gCatRows()}
+    <button class="link" data-act="gsAdd">+ Agregar categoría</button>
     <div class="lbl" style="margin-top:22px">Avisos</div>
     <button class="btn block" data-act="sNotif">${perm==='granted'?'Avisos del navegador activados ✓':'Activar avisos del navegador'}</button>
     <label class="tog"><input type="checkbox" id="sClose" ${state.settings.closeAlarm?'checked':''}> Aviso de cierre del día a las 23:30</label>
@@ -749,9 +773,13 @@ function openSettings(){
 function readSettings(){
   document.querySelectorAll('#sBlocks .srow2').forEach(r=>{const b=state.blocks.find(x=>x.id===r.dataset.bid);if(!b)return;r.querySelectorAll('[data-k]').forEach(i=>b[i.dataset.k]=i.value.trim()||b[i.dataset.k])});
   document.querySelectorAll('#sFixed .fixrow').forEach(r=>{const f=state.fixed.find(x=>x.id===r.dataset.fid);if(!f)return;r.querySelectorAll('[data-k]').forEach(i=>{const k=i.dataset.k;f[k]=(k==='start'||k==='dur')?+i.value:i.value})});
+  document.querySelectorAll('#sTags .srow2').forEach(r=>{const g=state.tags.find(x=>x.id===r.dataset.tid);if(!g)return;r.querySelectorAll('[data-k]').forEach(i=>g[i.dataset.k]=i.value.trim()||g[i.dataset.k])});
+  readG();
   const c=$('#sClose');if(c)state.settings.closeAlarm=c.checked;
 }
+function gCatRows(){return `<div id="gsCats">${state.ecats.map(c=>`<div class="srow2" data-cid="${c.id}"><input value="${esc(c.emoji)}" data-k="emoji" aria-label="Emoji"><input value="${esc(c.name)}" data-k="name" aria-label="Nombre"><input value="${c.budget||''}" data-k="budget" inputmode="decimal" placeholder="$ mes" aria-label="Presupuesto"><button class="x" data-act="gsDel" data-id="${c.id}" aria-label="Borrar categoría">✕</button></div>`).join('')}</div>`}
 function openGSettings(){
+  curSheet=openGSettings;
   sheet(`<h3>Presupuestos</h3>
     <div class="lbl">Presupuesto general por mes</div><input id="gsBud" inputmode="decimal" value="${state.budget||''}" placeholder="Sin presupuesto">
     <div class="lbl">Categorías <span class="muted">(presupuesto mensual opcional)</span></div>
@@ -760,6 +788,7 @@ function openGSettings(){
     <div class="shfoot"><button class="btn primary" data-act="gsSave">Guardar</button></div>`);
 }
 function readG(){
+  if(!$('#gsBud'))return;
   state.budget=+String($('#gsBud').value).replace(/[^\d.]/g,'')||0;
   document.querySelectorAll('#gsCats .srow2').forEach(r=>{const c=state.ecats.find(x=>x.id===r.dataset.cid);if(!c)return;
     r.querySelectorAll('[data-k]').forEach(i=>{const k=i.dataset.k;c[k]=k==='budget'?(+String(i.value).replace(/[^\d.]/g,'')||0):(i.value.trim()||c[k])})});
@@ -837,7 +866,7 @@ const A={
   setP:el=>{const s=+el.dataset.slot,id=el.dataset.id;const P=(state.principals[view]||['','','']).slice();P[s]=id;state.principals[view]=P;
     if(id){const t=state.tasks.find(x=>x.id===id);if(t&&t.status!=='plan'){t.status='plan';t.date=view;t.boxId=''}}
     save();closeSheet();render()},
-  setPnew:el=>{const v=$('#pNew').value.trim();if(!v){toast('Escribí la tarea');return}const t=newTask({text:v,status:'plan',date:view,nivel:'a',blockId:state.blocks[0].id});state.tasks.push(t);
+  setPnew:el=>{const v=$('#pNew').value.trim();if(!v){toast('Escribí la tarea');return}const t=newTask({text:v,status:'plan',date:view,nivel:'a',blockId:''});state.tasks.push(t);
     const P=(state.principals[view]||['','','']).slice();P[+el.dataset.slot]=t.id;state.principals[view]=P;save();closeSheet();render()},
   copyPrev:()=>{const prev=boxesOf(addDays(view,-1)).filter(b=>!b.fixedId);if(!prev.length){toast('Ayer no tenía cajas para copiar');return}
     let c=0;prev.forEach(p=>{const end=p.start+p.dur;if(boxesOf(view).some(x=>x.start<end&&p.start<x.start+x.dur))return;state.boxes.push({id:uid(),date:view,start:p.start,dur:p.dur,blockId:p.blockId,title:p.title||'',aviso:p.aviso!==false});c++});
@@ -846,15 +875,25 @@ const A={
   qExp:el=>{const v=num($('#qAmt').value);if(!v){toast('Poné el monto');return}
     state.expenses.push({id:uid(),date:el.dataset.d,amount:v,cat:$('#qCat').value,detail:$('#qDet').value.trim(),ts:String(Date.now())});save();render();toast('Gasto anotado: '+money(v))},
   score:el=>{const k=el.dataset.k,v=+el.dataset.v;const s=state.scores[view]||{};s[k]=s[k]===v?0:v;state.scores[view]=s;save();render()},
-  addBanco:()=>{const v=$('#bTxt').value.trim();if(!v){toast('Escribí la tarea');return}
-    state.tasks.push(newTask({text:v,blockId:$('#bBlk').value,tipo:$('#bTipo').value,nivel:$('#bLvl').value,due:$('#bDue').value||''}));
-    const keep={b:$('#bBlk').value,t:$('#bTipo').value};const d=$('#bDue').value;
-    if(d&&d<=today()&&$('#bTipo').value==='dia')ensureDay(today());
-    save();render();$('#bBlk').value=keep.b;$('#bTipo').value=keep.t;$('#bTxt').focus();toast('Al banco')},
+  addBanco:()=>{const v=$('#bTxt').value.trim();if(!v){toast('Escribí la tarea');$('#bTxt').focus();return}
+    bForm.b=$('#bBlk').value==='__new'?'':$('#bBlk').value;bForm.l=$('#bLvl').value;bForm.t=$('#bTipo').value;
+    const d=$('#bDue').value||'';
+    state.tasks.push(newTask({text:v,blockId:bForm.b,tipo:bForm.t,nivel:bForm.l,due:d,tags:bForm.tags.slice()}));
+    bForm.tags=[];
+    if(d&&d<=today()&&bForm.t==='dia')ensureDay(today());
+    save();render();$('#bTxt').focus();toast('Al banco')},
+  bTag:el=>{const id=el.dataset.id;bForm.tags=bForm.tags.includes(id)?bForm.tags.filter(x=>x!==id):[...bForm.tags,id];el.classList.toggle('on')},
+  eTag:el=>el.classList.toggle('on'),
+  btf:el=>{bancoTag=bancoTag===el.dataset.id?'':el.dataset.id;render()},
+  newTag:el=>{const n=(prompt('Nombre de la etiqueta')||'').trim();if(!n)return;const g={id:uid(),name:n,color:pickColor(state.tags.length)};state.tags.push(g);save();
+    const btn=document.createElement('button');btn.className='chip on';btn.style.setProperty('--cc',g.color);btn.dataset.act=el.dataset.ctx==='b'?'bTag':'eTag';btn.dataset.id=g.id;btn.textContent=g.name;el.before(btn);
+    if(el.dataset.ctx==='b')bForm.tags.push(g.id)},
+  sAddTag:()=>{readSettings();state.tags.push({id:uid(),name:'Nueva etiqueta',color:pickColor(state.tags.length)});openSettings()},
+  sDelTag:el=>{readSettings();state.tags=state.tags.filter(g=>g.id!==el.dataset.id);state.tasks.forEach(t=>t.tags=(t.tags||[]).filter(x=>x!==el.dataset.id));if(bancoTag===el.dataset.id)bancoTag='';openSettings()},
   bf:el=>{bancoF=el.dataset.f;render()},
   editTask:el=>openTask(el.dataset.id),
   eLvl:el=>{document.querySelectorAll('#eLvl .chip').forEach(c=>c.classList.toggle('on',c===el));$('#sheet').dataset.lvl=el.dataset.k},
-  eSave:el=>{const t=state.tasks.find(x=>x.id===el.dataset.id);if(!t)return;t.text=$('#eTxt').value.trim()||t.text;t.blockId=$('#eBlk').value;t.tipo=$('#eTipo').value;t.due=$('#eDue').value||'';t.nivel=$('#sheet').dataset.lvl||'n';
+  eSave:el=>{const t=state.tasks.find(x=>x.id===el.dataset.id);if(!t)return;t.text=$('#eTxt').value.trim()||t.text;t.blockId=$('#eBlk').value==='__new'?'':$('#eBlk').value;t.tags=[...document.querySelectorAll('#eTags .chip.on[data-id]')].map(c=>c.dataset.id);t.tipo=$('#eTipo').value;t.due=$('#eDue').value||'';t.nivel=$('#sheet').dataset.lvl||'n';
     if(t.due&&t.due>=today()&&t.missed&&t.missedFrom!==t.due)t.missed=false;
     save();closeSheet();render()},
   eDel:el=>{if(!confirm('¿Borrar esta tarea?'))return;state.tasks=state.tasks.filter(x=>x.id!==el.dataset.id);save();closeSheet();render()},
@@ -864,8 +903,8 @@ const A={
     state.expenses.push({id:uid(),date:$('#gDate').value||today(),amount:v,cat:$('#gCat').value,detail:$('#gDet').value.trim(),ts:String(Date.now())});save();render();toast('Gasto anotado: '+money(v))},
   gDel:el=>{if(!confirm('¿Borrar este gasto?'))return;state.expenses=state.expenses.filter(e=>e.id!==el.dataset.id);save();render()},
   gset:()=>openGSettings(),
-  gsAdd:()=>{readG();state.ecats.push({id:uid(),name:'Nueva',emoji:'🏷️',budget:0});openGSettings()},
-  gsDel:el=>{if(state.ecats.length<=1)return;readG();state.ecats=state.ecats.filter(c=>c.id!==el.dataset.id);openGSettings()},
+  gsAdd:()=>{readSettings();state.ecats.push({id:uid(),name:'Nueva',emoji:'🏷️',budget:0});(curSheet||openGSettings)()},
+  gsDel:el=>{if(state.ecats.length<=1)return;readSettings();state.ecats=state.ecats.filter(c=>c.id!==el.dataset.id);(curSheet||openGSettings)()},
   gsSave:()=>{readG();save();closeSheet();render();toast('Presupuestos guardados')},
   mAdd:()=>{const v=$('#mTxt').value.trim();if(!v){toast('Escribí la meta');return}state.goals.push({id:uid(),text:v,area:$('#mArea').value,horizon:$('#mHor').value,progress:0,focus:!state.goals.some(g=>g.focus)&&$('#mHor').value==='mes'});save();render()},
   mFocus:el=>{state.goals.forEach(g=>g.focus=g.id===el.dataset.id?!g.focus:false);save();render()},
@@ -889,6 +928,18 @@ document.addEventListener('input',e=>{
 });
 document.addEventListener('change',e=>{
   const el=e.target;
+  if((el.id==='bBlk'||el.id==='eBlk')&&el.value==='__new'){
+    const n=(prompt('Nombre del bloque nuevo')||'').trim();
+    if(n){const b={id:uid(),name:n,emoji:'🧩',color:pickColor(state.blocks.length)};state.blocks.push(b);save();el.innerHTML=blockOpts(b.id);if(el.id==='bBlk')bForm.b=b.id;toast('Bloque creado. Cambiale emoji y color en Configuración.')}
+    else el.value=el.id==='bBlk'?bForm.b:'';
+  }else if(el.id==='bBlk')bForm.b=el.value;
+  if(el.id==='bLvl')bForm.l=el.value;
+  if(el.id==='bTipo')bForm.t=el.value;
+  if((el.id==='qCat'||el.id==='gCat')&&el.value==='__new'){
+    const n=(prompt('Nombre de la categoría nueva')||'').trim();
+    if(n){const c={id:uid(),name:n,emoji:'🏷️',budget:0};state.ecats.push(c);save();el.innerHTML=catOpts(c.id)}
+    else el.value=state.ecats[0].id;
+  }
   if(draft&&el.dataset.f==='start'){draft.b.start=+el.value;renderBoxSheet()}
   if(draft&&el.dataset.f==='aviso')draft.b.aviso=el.checked;
   if(el.dataset.goal){save();render()}
