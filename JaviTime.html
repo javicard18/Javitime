@@ -225,6 +225,32 @@ select{appearance:none;-webkit-appearance:none;background-image:linear-gradient(
 .insight:last-child{border-bottom:0}
 .hbarrow{display:grid;grid-template-columns:110px 1fr 34px;gap:8px;align-items:center;font-size:13px;padding:5px 0}
 .hbarrow .pbar{height:10px}
+.sbadge{flex:none;font-size:12px;font-weight:700;padding:3px 9px;border-radius:99px;border:1.5px solid var(--ok);color:var(--ok);background:transparent}
+.sbadge.open{background:var(--ok);color:#12301f}
+li.subs{display:block;padding:0 0 6px 32px;min-height:0}
+.subrow{display:flex;align-items:center;gap:10px;padding:5px 0;font-size:14px}
+.subrow .ck{width:19px;height:19px;border-radius:6px}
+.subrow.done span{text-decoration:line-through;color:var(--mu)}
+.notegrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.note{background:var(--s1);border-radius:16px;padding:12px;text-align:left;display:flex;flex-direction:column;gap:6px;min-height:110px;border-top:3px solid var(--nc,var(--s3))}
+.note b{font-weight:700;font-size:15px;overflow-wrap:anywhere}
+.note p{margin:0;font-size:13px;color:var(--mu);display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-line}
+.note small{margin-top:auto;font-size:11px;color:var(--dim)}
+.fold{background:var(--s1);border-radius:16px;padding:12px 14px;margin-bottom:8px}
+.fold .fh{display:flex;align-items:center;gap:10px;width:100%;text-align:left}
+.fold .fh b{flex:1;font-size:16px}
+.calg{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:10px}
+.calg .dh{text-align:center;font-size:12px;color:var(--mu);padding:4px 0}
+.calg button{aspect-ratio:1;border-radius:12px;background:var(--s2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font:700 15px var(--disp);position:relative}
+.calg button.out{visibility:hidden}
+.calg button.td{box-shadow:0 0 0 2px var(--amber) inset}
+.calg button.sel{background:var(--amber);color:#1a1405}
+.calg button.past{color:var(--mu)}
+.calg .cnt{font:700 10px Figtree,sans-serif;color:var(--amber)}
+.calg button.sel .cnt{color:#1a1405}
+.calg .dots{display:flex;gap:2px;height:5px}
+.calg .dots i{width:5px;height:5px;border-radius:50%}
+textarea{width:100%;background:var(--s2);border:1px solid transparent;border-radius:12px;padding:11px 12px;outline:none;resize:vertical;min-height:180px;line-height:1.5}
 .quote{margin:0 0 18px;padding:16px 18px;border-radius:18px;background:linear-gradient(135deg,var(--s1),var(--s2));position:relative}
 .quote q{display:block;font:600 17px/1.4 var(--disp);quotes:"“" "”"}
 .quote .qa{display:flex;justify-content:space-between;align-items:center;margin-top:8px;color:var(--amber);font-size:13px;font-weight:600}
@@ -236,7 +262,7 @@ select{appearance:none;-webkit-appearance:none;background-image:linear-gradient(
 /* nav */
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(19,24,38,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
 nav.tabs .in{max-width:560px;margin:0 auto;display:flex}
-nav.tabs button{flex:1;padding:10px 0 9px;display:grid;justify-items:center;gap:2px;font-size:12px;color:var(--dim);font-weight:600}
+nav.tabs button{flex:1;min-width:0;padding:10px 0 9px;display:grid;justify-items:center;gap:2px;font-size:11px;color:var(--dim);font-weight:600}
 nav.tabs button .i{font-size:19px;filter:grayscale(1);opacity:.6}
 nav.tabs button.on{color:var(--tx)}
 nav.tabs button.on .i{filter:none;opacity:1}
@@ -301,6 +327,7 @@ nav.tabs button.on .i{filter:none;opacity:1}
   <button data-act="tab" data-t="hoy"><span class="i">⏱️</span>Hoy</button>
   <button data-act="tab" data-t="banco"><span class="i">🏦</span><span>Banco<span id="bancoBadge"></span></span></button>
   <button data-act="tab" data-t="gastos"><span class="i">💸</span>Gastos</button>
+  <button data-act="tab" data-t="notas"><span class="i">📝</span>Notas</button>
   <button data-act="tab" data-t="stats"><span class="i">📊</span>Progreso</button>
   <button data-act="tab" data-t="metas"><span class="i">🎯</span>Metas</button>
 </div></nav>
@@ -360,7 +387,7 @@ const LEVELS={u:{name:'Urgente, hacer ya',short:'Urgente',c:'#EF6F6C',o:0},a:{na
 const TIPOS={dia:'Por día',sem:'Semanal',mes:'Mensual'};
 const AREAS={j:{name:'Negocio Javicard',short:'Negocio',c:'#5AB0E8'},d:{name:'Tareas domésticas',short:'Casa',c:'#B9B2A3'},e:{name:'Estudios',short:'Estudios',c:'#B79CF0'},c:{name:'Físico',short:'Físico',c:'#FF8A65'}};
 const AK=Object.keys(AREAS), AMAX=AK.length*5;
-const APP_VERSION='6 oct 2026 · v6';
+const APP_VERSION='6 oct 2026 · v7';
 const HORIZ={mes:'Este mes',tri:'Trimestre',ano:'Este año'};
 
 /* ---------- estado ---------- */
@@ -381,13 +408,14 @@ function normalize(p){
     dayInit:p.dayInit||{},principals:p.principals||{},scores:p.scores||{},
     expenses:arr(p.expenses),
     ecats:arr(p.ecats).length?arr(p.ecats):DEF_ECATS.map(c=>({...c})),
-    budget:+p.budget||0,goals:arr(p.goals),
+    budget:+p.budget||0,goals:arr(p.goals),notes:arr(p.notes),folders:arr(p.folders),
     settings:Object.assign({closeAlarm:true},p.settings||{})};
   s.fixed.forEach(f=>f.days=arr(f.days).map(Number));
-  s.tasks.forEach(t=>t.tags=arr(t.tags));
+  s.tasks.forEach(t=>{t.tags=arr(t.tags);t.subs=arr(t.subs)});
+  s.folders.forEach(f=>f.items=arr(f.items));
   s.pomoLog=p.pomoLog||{};
   if(!s.settings.blocksV2){[{id:'estudio',name:'Estudio',emoji:'📚',color:'#D9C36A'},{id:'fisico',name:'Tareas físicas',emoji:'🏋️',color:'#8FD16A'}].forEach((b,i)=>{if(!s.blocks.some(x=>x.id===b.id))s.blocks.push({...b,o:900+i})});s.settings.blocksV2=1;}
-  ['blocks','ecats','tags','fixed','goals'].forEach(c=>{s[c].forEach((x,i)=>{if(x.o==null)x.o=i});s[c].sort((a,b)=>a.o-b.o)});
+  ['blocks','ecats','tags','fixed','goals','folders'].forEach(c=>{s[c].forEach((x,i)=>{if(x.o==null)x.o=i});s[c].sort((a,b)=>a.o-b.o)});
   Object.keys(s.principals).forEach(k=>{const a=arr(s.principals[k]);s.principals[k]=[a[0]||'',a[1]||'',a[2]||''];});
   return s;
 }
@@ -398,7 +426,7 @@ function localLoad(){try{return JSON.parse(localStorage.getItem(KEY))}catch(e){r
    Cada tarea, caja, gasto, etc. se guarda en su propia ruta (tasks/<id>).
    Solo se mandan los cambios, así el celu y la PC nunca se pisan la lista entera.
    Los cambios sin confirmar quedan en "pendientes" (también en el celu) y se reenvían. */
-const COLS=['tasks','boxes','expenses','goals','blocks','ecats','tags','fixed'], MAPS=['dayInit','principals','scores','pomoLog'];
+const COLS=['tasks','boxes','expenses','goals','blocks','ecats','tags','fixed','notes','folders'], MAPS=['dayInit','principals','scores','pomoLog'];
 function stable(x){if(Array.isArray(x))return '['+x.map(stable).join(',')+']';if(x&&typeof x==='object')return '{'+Object.keys(x).filter(k=>x[k]!==undefined).sort().map(k=>JSON.stringify(k)+':'+stable(x[k])).join(',')+'}';return JSON.stringify(x===undefined?null:x)}
 function flatten(st){const f={};
   COLS.forEach(c=>(st[c]||[]).forEach(x=>{if(x&&x.id)f[c+'/'+x.id]=stable(x)}));
@@ -413,7 +441,7 @@ let base=readJ(BASE_KEY,null), baseLoaded=!!base, pending=readJ(PEND_KEY,{});
 if(!base)base={};
 function storeSync(){try{localStorage.setItem(BASE_KEY,JSON.stringify(base));localStorage.setItem(PEND_KEY,JSON.stringify(pending))}catch(e){}}
 function save(){
-  ['blocks','ecats','tags','fixed','goals'].forEach(c=>state[c].forEach((x,i)=>{if(x.o==null)x.o=Date.now()+i}));
+  ['blocks','ecats','tags','fixed','goals','folders'].forEach(c=>state[c].forEach((x,i)=>{if(x.o==null)x.o=Date.now()+i}));
   localSave();
   if(!baseLoaded&&!fbReady)return;            // celu nuevo: esperar a la nube antes de mandar nada
   const cur=flatten(state);let n=0;
@@ -526,7 +554,7 @@ function render(){
   const miss=banco().filter(t=>t.missed).length;
   $('#bancoBadge').innerHTML=miss?'<span class="badge">'+miss+'</span>':'';
   renderHeader();
-  $('#main').innerHTML=tab==='hoy'?viewHoy():tab==='banco'?viewBanco():tab==='gastos'?viewGastos():tab==='stats'?viewStats():viewMetas();
+  $('#main').innerHTML=tab==='hoy'?viewHoy():tab==='banco'?viewBanco():tab==='gastos'?viewGastos():tab==='stats'?viewStats():tab==='notas'?viewNotas():viewMetas();
 }
 function renderHeader(){
   let h;
@@ -536,9 +564,10 @@ function renderHeader(){
     h=`<button class="iconbtn" data-act="day" data-n="-1" aria-label="Día anterior">‹</button>
       <div class="htitle"><h1>${DIAS_L[dow(view)-1]} ${d.getDate()}</h1><div class="sub">${rel?rel+', ':''}${MES[d.getMonth()]}</div></div>
       ${isT?'':'<button class="todaypill" data-act="goToday">Ir a hoy</button>'}
-      <button class="iconbtn" data-act="day" data-n="1" aria-label="Día siguiente">›</button>`;
+      <button class="iconbtn" data-act="day" data-n="1" aria-label="Día siguiente">›</button>
+      <button class="iconbtn" data-act="cal" aria-label="Calendario">📅</button>`;
   }else{
-    const t={banco:['Banco de tareas','Todo lo pendiente, agrupado por bloque'],gastos:['Gastos personales','Lo que gastás y cuánto te queda'],metas:['Metas','Tu rumbo y cómo vienen tus días'],stats:['Progreso','Medí cómo mejorás día a día']}[tab];
+    const t={banco:['Banco de tareas','Todo lo pendiente, agrupado por bloque'],gastos:['Gastos personales','Lo que gastás y cuánto te queda'],metas:['Metas','Tu rumbo y cómo vienen tus días'],stats:['Progreso','Medí cómo mejorás día a día'],notas:['Notas y carpetas','Ideas, listas y tareas complejas']}[tab];
     h=`<button class="iconbtn" data-act="tab" data-t="hoy" aria-label="Volver a Hoy">‹</button><div class="htitle"><h1>${t[0]}</h1><div class="sub">${t[1]}</div></div>`;
   }
   h+=`<span class="sync ${window._sync||''}" id="syncDot" title="Sincronización"></span><button class="iconbtn" data-act="settings" aria-label="Configuración">⚙︎</button>`;
@@ -588,7 +617,10 @@ function heroHTML(){
   return `<div class="hero"><div class="hk">Sin cajas por delante</div><div class="hbig">${hm(n)}</div>
     <div class="hname">Armá una caja o sacá algo del banco.</div><button class="btn" style="margin-top:12px" data-act="pomoOpen" data-id="">🍅 Pomodoro libre</button></div>`;
 }
-function taskLi(t){return `<li class="${t.done?'done':''}"><button class="ck ${t.done?'on':''}" data-act="tg" data-id="${t.id}" aria-label="Marcar"></button><button class="tx" style="text-align:left" data-act="editTask" data-id="${t.id}">${esc(t.text)}${t.alarm?' <span class="mini">⏰ '+t.alarm+'</span>':''}${tagPills(t)}</button>${t.done?'':`<button class="ib" data-act="pomoTask" data-id="${t.id}" aria-label="Pomodoro con esta tarea">🍅</button>`}<button class="ib" data-act="editTask" data-id="${t.id}" aria-label="Editar tarea">✎</button></li>`}
+let openSubs=new Set();
+function subBadge(t){const n=(t.subs||[]).length;if(!n)return '';const d=t.subs.filter(x=>x.done).length;return `<button class="sbadge ${openSubs.has(t.id)?'open':''}" data-act="subTog" data-id="${t.id}" aria-label="Ver subtareas">${d}/${n} ${openSubs.has(t.id)?'▴':'▾'}</button>`}
+function subList(t){if(!openSubs.has(t.id)||!(t.subs||[]).length)return '';return `<li class="subs">${t.subs.map(x=>`<div class="subrow ${x.done?'done':''}"><button class="ck ${x.done?'on':''}" data-act="subTg" data-id="${t.id}" data-s="${x.id}" aria-label="Marcar subtarea"></button><span>${esc(x.text)}</span></div>`).join('')}</li>`}
+function taskLi(t){return `<li class="${t.done?'done':''}"><button class="ck ${t.done?'on':''}" data-act="tg" data-id="${t.id}" aria-label="Marcar"></button><button class="tx" style="text-align:left" data-act="editTask" data-id="${t.id}">${esc(t.text)}${t.alarm?' <span class="mini">⏰ '+t.alarm+'</span>':''}${tagPills(t)}</button>${subBadge(t)}${t.done?'':`<button class="ib" data-act="pomoTask" data-id="${t.id}" aria-label="Pomodoro con esta tarea">🍅</button>`}<button class="ib" data-act="editTask" data-id="${t.id}" aria-label="Editar tarea">✎</button></li>${subList(t)}`}
 
 function viewHoy(){
   const boxes=boxesOf(view), isT=view===today(), n=nowMin(), past=view<today();
@@ -649,7 +681,7 @@ function viewHoy(){
   const loose=state.tasks.filter(t=>t.status==='plan'&&t.date===view&&!t.boxId);
   if(loose.length){
     h+=`<div class="sec"><h2>Sin horario</h2><span class="side">Metelas en una caja</span></div><div class="card"><ul class="tl">`+
-      loose.map(t=>`<li class="${t.done?'done':''}"><button class="ck ${t.done?'on':''}" data-act="tg" data-id="${t.id}" aria-label="Marcar"></button><button class="tx" style="text-align:left" data-act="editTask" data-id="${t.id}">${blockOf(t.blockId).emoji} ${esc(t.text)}${t.alarm?' <span class="mini">⏰ '+t.alarm+'</span>':''}${tagPills(t)}</button>${t.done||past?'':`<button class="ib" data-act="pomoTask" data-id="${t.id}" aria-label="Pomodoro con esta tarea">🍅</button>`}<button class="ib" data-act="editTask" data-id="${t.id}" aria-label="Editar tarea">✎</button>${past?'':`<button class="x" data-act="toBanco" data-id="${t.id}" aria-label="Devolver al banco" title="Devolver al banco">↩</button>`}</li>`).join('')+'</ul></div>';
+      loose.map(t=>`<li class="${t.done?'done':''}"><button class="ck ${t.done?'on':''}" data-act="tg" data-id="${t.id}" aria-label="Marcar"></button><button class="tx" style="text-align:left" data-act="editTask" data-id="${t.id}">${blockOf(t.blockId).emoji} ${esc(t.text)}${t.alarm?' <span class="mini">⏰ '+t.alarm+'</span>':''}${tagPills(t)}</button>${subBadge(t)}${t.done||past?'':`<button class="ib" data-act="pomoTask" data-id="${t.id}" aria-label="Pomodoro con esta tarea">🍅</button>`}<button class="ib" data-act="editTask" data-id="${t.id}" aria-label="Editar tarea">✎</button>${past?'':`<button class="x" data-act="toBanco" data-id="${t.id}" aria-label="Devolver al banco" title="Devolver al banco">↩</button>`}</li>${subList(t)}`).join('')+'</ul></div>';
   }
 
   // gasto rápido
@@ -697,6 +729,7 @@ function viewBanco(){
         if(t.due)meta.push('<span>para el '+parse(t.due).getDate()+'/'+(parse(t.due).getMonth()+1)+'</span>');
         if(t.missed)meta.push(`<span class="miss">no se hizo${t.missedFrom?' el '+parse(t.missedFrom).getDate()+'/'+(parse(t.missedFrom).getMonth()+1):''}</span>`);
         if(t.reprog)meta.push('<span>↻ '+t.reprog+'</span>');
+        if((t.subs||[]).length)meta.push('<span style="color:var(--ok)">☑ '+t.subs.filter(x=>x.done).length+'/'+t.subs.length+'</span>');
         (t.tags||[]).map(tagOf).filter(Boolean).forEach(g=>meta.push(`<span class="tagp" style="--tc:${g.color}">${esc(g.name)}</span>`));
         return `<div class="titem"><button class="ck" data-act="tg" data-id="${t.id}" aria-label="Marcar hecha"></button><span class="lvl" style="background:${L.c}"></span>
           <button class="body" data-act="editTask" data-id="${t.id}"><span class="tx">${esc(t.text)}</span><span class="meta">${meta.join('')}</span></button>
@@ -757,6 +790,79 @@ function viewGastos(){
     h+=`<div class="exp"><span class="em">${c.emoji}</span><div class="d">${esc(e.detail||c.name)}<small>${c.name}, ${DIAS[dow(e.date)-1]} ${d.getDate()}/${d.getMonth()+1}</small></div><span class="m">${money(e.amount)}</span><button class="x" data-act="gDel" data-id="${e.id}" aria-label="Borrar gasto">✕</button></div>`;});
   h+='</div>';
   return h;
+}
+
+/* ---------- NOTAS Y CARPETAS ---------- */
+let nSeg='notas', nQ='';
+const NCOL=['','#5AB0E8','#7BC59A','#F2B544','#E58BA0','#B79CF0'];
+function viewNotas(){
+  let h=`<div class="seg">${[['notas','📝 Notas'],['carp','📁 Carpetas']].map(([k,v])=>`<button class="${nSeg===k?'on':''}" data-act="nSeg" data-k="${k}">${v}</button>`).join('')}</div>`;
+  if(nSeg==='notas'){
+    const q=nQ.toLowerCase();
+    const ns=state.notes.filter(n=>!q||(n.title+' '+n.body).toLowerCase().includes(q)).sort((a,b)=>(b.pin?1:0)-(a.pin?1:0)||String(b.upd||'').localeCompare(String(a.upd||'')));
+    h+=`<div class="row" style="margin:12px 0"><input id="nSearch" class="grow" placeholder="Buscar en notas" value="${esc(nQ)}"><button class="btn primary" data-act="noteNew">+ Nota</button></div>`;
+    h+=ns.length?`<div class="notegrid">${ns.map(n=>`<button class="note" style="--nc:${n.color||'var(--s3)'}" data-act="noteEdit" data-id="${n.id}"><b>${n.pin?'📌 ':''}${esc(n.title||'Sin título')}</b><p>${esc(n.body||'')}</p><small>${n.upd?parse(n.upd.slice(0,10)).getDate()+'/'+(parse(n.upd.slice(0,10)).getMonth()+1):''}</small></button>`).join('')}</div>`
+      :`<div class="empty">${q?'Nada con esa búsqueda.':'Anotá ideas, datos de proveedores, precios, lo que sea. Tocá "+ Nota".'}</div>`;
+  }else{
+    h+=`<div class="row" style="margin:12px 0"><div class="muted grow" style="font-size:13px">Para tareas complejas o listas: pedidos, compras, proyectos.</div><button class="btn primary" data-act="foldNew">+ Carpeta</button></div>`;
+    if(!state.folders.length)h+='<div class="empty">Ejemplo: "Pedidos" con Quilmes, Coca-Cola, Pepsi… y vas tildando.</div>';
+    state.folders.forEach(f=>{const n=f.items.length,d=f.items.filter(x=>x.done).length;
+      h+=`<div class="fold"><button class="fh" data-act="foldEdit" data-id="${f.id}"><span style="font-size:20px">${esc(f.emoji||'📁')}</span><b>${esc(f.name)}</b><span class="mini">${d}/${n}</span><span class="ib">✎</span></button>
+        <div class="pbar" style="margin:10px 0 4px"><i style="width:${n?d/n*100:0}%"></i></div>
+        ${f.date?`<div class="muted" style="font-size:12px">📅 ${parse(f.date).getDate()}/${parse(f.date).getMonth()+1}</div>`:''}
+        <ul class="tl">${f.items.map(x=>`<li class="${x.done?'done':''}"><button class="ck ${x.done?'on':''}" data-act="fiTg" data-id="${f.id}" data-s="${x.id}" aria-label="Marcar"></button><span class="tx">${esc(x.text)}</span></li>`).join('')}</ul>
+        <div class="row" style="margin-top:6px"><input class="grow fiNew" data-id="${f.id}" placeholder="Agregar a ${esc(f.name)}"><button class="btn" data-act="fiAdd" data-id="${f.id}">+</button></div></div>`});
+  }
+  return h;
+}
+function openNote(id){
+  const n=id?state.notes.find(x=>x.id===id):null;
+  sheet(`<h3>${n?'Nota':'Nueva nota'}</h3>
+    <div class="lbl">Título</div><input id="ntT" value="${esc(n?n.title:'')}" placeholder="Ej: Precios proveedores">
+    <div class="lbl">Nota</div><textarea id="ntB" placeholder="Escribí lo que quieras…">${esc(n?n.body:'')}</textarea>
+    <div class="lbl">Color</div><div class="chips" id="ntC">${NCOL.map(c=>`<button class="chip ${(n?n.color||'':'')===c?'on':''}" data-act="ntCol" data-c="${c}" style="--cc:${c||'var(--mu)'}"><span style="display:inline-block;width:14px;height:14px;border-radius:4px;background:${c||'var(--s3)'};vertical-align:middle"></span></button>`).join('')}</div>
+    <label class="tog"><input type="checkbox" id="ntP" ${n&&n.pin?'checked':''}> Fijar arriba 📌</label>
+    ${n?`<div class="row" style="margin-top:14px"><button class="btn grow" data-act="noteTask" data-id="${n.id}">→ Pasar al banco como tarea</button></div>`:''}
+    <div class="shfoot">${n?`<button class="btn danger" data-act="noteDel" data-id="${n.id}">Borrar</button>`:'<button class="btn" data-act="closeSheet">Cancelar</button>'}<button class="btn primary" data-act="noteSave" data-id="${n?n.id:''}">Guardar</button></div>`);
+  $('#sheet').dataset.nc=n?n.color||'':'';
+}
+let foldDraft=null;
+function openFold(id){
+  const f=id?state.folders.find(x=>x.id===id):null;
+  foldDraft={id:f?f.id:'',items:f?f.items.map(x=>({...x})):[]};
+  sheet(`<h3>${f?'Carpeta':'Nueva carpeta'}</h3>
+    <div class="row"><label style="flex:0 0 64px"><div class="lbl">Emoji</div><input id="fdE" value="${esc(f?f.emoji||'📁':'📁')}"></label><label class="grow"><div class="lbl">Nombre</div><input id="fdN" value="${esc(f?f.name:'')}" placeholder="Ej: Pedidos"></label></div>
+    <div class="lbl">Fecha (opcional)</div><input id="fdD" type="date" value="${f?f.date||'':''}">
+    <div class="lbl">Ítems</div><div id="fdI"></div>
+    <div class="row" style="margin-top:6px"><input id="fdNew" class="grow" placeholder="Agregar ítem"><button class="btn" data-act="fdAdd">+</button></div>
+    <div class="shfoot">${f?`<button class="btn danger" data-act="foldDel" data-id="${f.id}">Borrar</button>`:'<button class="btn" data-act="closeSheet">Cancelar</button>'}<button class="btn primary" data-act="foldSave">Guardar</button></div>`);
+  renderFoldDraft();
+}
+function renderFoldDraft(){const el=$('#fdI');if(!el)return;el.innerHTML=foldDraft.items.map(x=>`<div class="subrow ${x.done?'done':''}"><button class="ck ${x.done?'on':''}" data-act="fdTg" data-s="${x.id}" aria-label="Marcar"></button><span class="grow">${esc(x.text)}</span><button class="hoybtn" data-act="fdBanco" data-s="${x.id}" title="Mandar al banco">→ Banco</button><button class="x" data-act="fdDel" data-s="${x.id}" aria-label="Borrar">✕</button></div>`).join('')||'<div class="muted" style="font-size:13px">Sin ítems todavía.</div>'}
+
+/* ---------- CALENDARIO ---------- */
+let calRef=null;
+function dayTasks(d){return state.tasks.filter(t=>(t.status==='plan'&&t.date===d)||(t.status==='banco'&&!t.done&&t.due===d)||(t.done&&t.doneAt===d))}
+function openCal(){
+  calRef=calRef||view;
+  const R0=parse(calRef),y=R0.getFullYear(),m=R0.getMonth();
+  const first=ymd(new Date(y,m,1)),nd=new Date(y,m+1,0).getDate(),pad0=dow(first)-1;
+  let g=DIAS.map(d=>`<div class="dh">${d.slice(0,2)}</div>`).join('');
+  for(let i=0;i<pad0;i++)g+='<button class="out" tabindex="-1"></button>';
+  for(let i=1;i<=nd;i++){const d=ymd(new Date(y,m,i));const ts=dayTasks(d),pend=ts.filter(t=>!t.done).length,done=ts.filter(t=>t.done).length,bx=boxesOf(d).length;
+    g+=`<button class="${d===today()?'td':''} ${d===view?'sel':''} ${d<today()?'past':''}" data-act="calDay" data-d="${d}">${i}${pend?`<span class="cnt">${pend}</span>`:''}<span class="dots">${done?'<i style="background:var(--ok)"></i>':''}${bx?'<i style="background:#5AB0E8"></i>':''}${(state.folders.some(f=>f.date===d)||state.tasks.some(t=>t.due===d&&!t.done))?'<i style="background:var(--bad)"></i>':''}</span></button>`}
+  // lista del mes
+  const a=first,b=ymd(new Date(y,m,nd));const by={};
+  state.tasks.filter(t=>{const d=t.status==='plan'?t.date:t.due;return d&&d>=a&&d<=b&&(!t.done||t.doneAt)}).forEach(t=>{const d=t.status==='plan'?t.date:t.due;(by[d]=by[d]||[]).push(t)});
+  state.folders.filter(f=>f.date&&f.date>=a&&f.date<=b).forEach(f=>{(by[f.date]=by[f.date]||[]).push({fold:f})});
+  const list=Object.keys(by).sort().map(d=>{const D=parse(d);const it=by[d];const tk=it.filter(x=>!x.fold);
+    return `<div class="sec" style="margin:16px 0 6px"><h2 style="font-size:16px">${D.getDate()} ${MES[D.getMonth()]}, ${DIAS[dow(d)-1].toLowerCase()}</h2><span class="side">${tk.filter(t=>t.done).length}/${tk.length}</span></div><div class="card" style="padding:4px 14px"><ul class="tl">${it.map(x=>x.fold?`<li><span>${esc(x.fold.emoji||'📁')}</span><button class="tx" style="text-align:left" data-act="foldEdit" data-id="${x.fold.id}">${esc(x.fold.name)} <span class="mini">${x.fold.items.filter(i=>i.done).length}/${x.fold.items.length}</span></button></li>`:taskLi(x)).join('')}</ul></div>`}).join('');
+  sheet(`<h3>Calendario</h3>
+    <div class="pnav"><button class="iconbtn" data-act="calNav" data-n="-1" aria-label="Mes anterior">‹</button><b>${cap(MES[m])} ${y}</b><button class="iconbtn" data-act="calNav" data-n="1" aria-label="Mes siguiente">›</button></div>
+    <div class="calg">${g}</div>
+    <div class="legend" style="margin-top:10px"><span><i style="background:var(--amber)"></i>número = pendientes</span><span><i style="background:var(--ok)"></i>hechas</span><span><i style="background:#5AB0E8"></i>cajas</span><span><i style="background:var(--bad)"></i>con fecha</span></div>
+    ${list||'<div class="empty">No hay tareas con fecha este mes.</div>'}
+    <div class="muted" style="font-size:12px;margin-top:14px">Tocá un día para ir a ese día y planificarlo.</div>`);
 }
 
 /* ---------- FRASES ---------- */
@@ -923,7 +1029,7 @@ function sheet(html){const s=$('#sheet');const was=s.classList.contains('open');
 let ignorePop=false;
 function navPush(k){try{history.pushState({jt:k},'')}catch(e){}}
 function navBack(k){if(history.state&&history.state.jt===k){ignorePop=true;history.back()}}
-function closeSheet(fromPop){if(fromPop!==true&&$('#sheet').classList.contains('open'))navBack('sheet');$('#sheet').classList.remove('open');$('#sheet').innerHTML='';draft=null;if(needRender){needRender=false;render()}}
+function closeSheet(fromPop){calRef=null;if(fromPop!==true&&$('#sheet').classList.contains('open'))navBack('sheet');$('#sheet').classList.remove('open');$('#sheet').innerHTML='';draft=null;if(needRender){needRender=false;render()}}
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200)}
 
 function nextFreeStart(){const boxes=boxesOf(view);let s=view===today()?Math.max(DAY_START,Math.ceil(nowMin()/15)*15):DAY_START;
@@ -967,20 +1073,27 @@ function boxSave(){
   d.orig.filter(id=>!d.ids.includes(id)).forEach(id=>{const t=state.tasks.find(x=>x.id===id);if(t&&!t.done){t.status='banco';t.boxId='';t.date=''}});
   save();closeSheet();render();toast('Caja guardada');
 }
+let subDraft=[];
+function renderSubDraft(){const el=$('#eSubs');if(!el)return;el.innerHTML=subDraft.map(x=>`<div class="subrow ${x.done?'done':''}"><button class="ck ${x.done?'on':''}" data-act="sdTg" data-s="${x.id}" aria-label="Marcar"></button><span class="grow">${esc(x.text)}</span><button class="x" data-act="sdDel" data-s="${x.id}" aria-label="Borrar subtarea">✕</button></div>`).join('')||'<div class="muted" style="font-size:13px">Sin subtareas. Dividí la tarea en pasos chicos.</div>'}
 function openTask(id){
   const t=state.tasks.find(x=>x.id===id);if(!t)return;
+  subDraft=(t.subs||[]).map(x=>({...x}));
   sheet(`<h3>Editar tarea</h3>
     <div class="lbl">Tarea</div><input id="eTxt" value="${esc(t.text)}">
     <div class="lbl">Bloque</div><select id="eBlk">${blockOpts(t.blockId)}</select>
     <div class="row" style="margin-top:0"><label class="grow"><div class="lbl">Tipo</div><select id="eTipo">${Object.entries(TIPOS).map(([k,v])=>`<option value="${k}" ${k===t.tipo?'selected':''}>${v}</option>`).join('')}</select></label>
       <label class="grow"><div class="lbl">Fecha</div><input id="eDue" type="date" value="${t.due||''}"></label></div>
+    <div class="lbl">Subtareas</div><div id="eSubs"></div>
+    <div class="row" style="margin-top:6px"><input id="eSubNew" class="grow" placeholder="Agregar subtarea (ej: Quilmes)"><button class="btn" data-act="sdAdd">+</button></div>
     <div class="lbl">Etiquetas</div><div class="chips" id="eTags">${tagChips(t.tags||[],'eTag')}<button class="chip" data-act="newTag" data-ctx="e">+ Etiqueta</button></div>
     <div class="lbl">Alarma <span class="muted">(opcional, el día que la tengas planificada)</span></div><div class="row"><input id="eAlarm" type="time" class="grow" value="${t.alarm||''}"><button class="btn" data-act="eAlarmClr">Sin alarma</button></div>
     <div class="lbl">Nivel</div><div class="chips" id="eLvl">${Object.entries(LEVELS).map(([k,v])=>`<button class="chip ${k===(t.nivel||'n')?'on':''}" style="--cc:${v.c}" data-act="eLvl" data-k="${k}">${v.name}</button>`).join('')}</div>
     ${t.reprog?`<div class="muted" style="font-size:13px;margin-top:12px">La pateaste ${t.reprog} ${t.reprog===1?'vez':'veces'}. ${t.reprog>=3?'Partila en algo más chico o borrala.':''}</div>`:''}
-    <div class="row" style="margin-top:16px">${t.done?'':`<button class="btn grow" style="color:var(--amber)" data-act="pomoTask" data-id="${t.id}">🍅 Pomodoro${t.pomos?' ('+t.pomos+')':''}</button>`}${t.status==='plan'?`<button class="btn grow" data-act="toBanco" data-id="${t.id}">↩ Mandar al banco</button>`:`<button class="btn grow" data-act="toHoy" data-id="${t.id}">→ Pasar a hoy</button>`}</div>
+    <div class="row" style="margin-top:16px"><button class="btn grow" data-act="eDup" data-id="${t.id}">⧉ Hacer una copia</button></div>
+    <div class="row" style="margin-top:8px">${t.done?'':`<button class="btn grow" style="color:var(--amber)" data-act="pomoTask" data-id="${t.id}">🍅 Pomodoro${t.pomos?' ('+t.pomos+')':''}</button>`}${t.status==='plan'?`<button class="btn grow" data-act="toBanco" data-id="${t.id}">↩ Mandar al banco</button>`:`<button class="btn grow" data-act="toHoy" data-id="${t.id}">→ Pasar a hoy</button>`}</div>
     <div class="shfoot"><button class="btn danger" data-act="eDel" data-id="${t.id}">Borrar</button><button class="btn primary" data-act="eSave" data-id="${t.id}">Guardar</button></div>`);
   $('#sheet').dataset.lvl=t.nivel||'n';
+  renderSubDraft();
 }
 function openPick(slot){
   const P=state.principals[view]||['','',''];
@@ -1181,6 +1294,40 @@ const A={
   dAviso:el=>{const m=+el.dataset.m;draft.b.avisoMin=m;draft.b.aviso=m>=0;renderBoxSheet()},
   eAlarmClr:()=>{$('#eAlarm').value=''},
   pomoOpen:el=>pomoOpen(el.dataset.id),
+  subTog:el=>{const id=el.dataset.id;openSubs.has(id)?openSubs.delete(id):openSubs.add(id);if($('#sheet').classList.contains('open')&&calRef)openCal();else render()},
+  subTg:el=>{const t=state.tasks.find(x=>x.id===el.dataset.id);if(!t)return;const x=t.subs.find(y=>y.id===el.dataset.s);if(!x)return;x.done=!x.done;
+    if(t.subs.every(y=>y.done)&&!t.done){t.done=true;t.doneAt=t.date||today();t.missed=false;toast('Todas las subtareas listas: tarea hecha 👏')}
+    else if(!x.done&&t.done){t.done=false;t.doneAt=''}
+    save();if($('#sheet').classList.contains('open')&&calRef)openCal();else render()},
+  sdTg:el=>{const x=subDraft.find(y=>y.id===el.dataset.s);if(x){x.done=!x.done;renderSubDraft()}},
+  sdDel:el=>{subDraft=subDraft.filter(y=>y.id!==el.dataset.s);renderSubDraft()},
+  sdAdd:()=>{const i=$('#eSubNew');const v=i.value.trim();if(!v)return;subDraft.push({id:uid(),text:v,done:false});i.value='';renderSubDraft();i.focus()},
+  eDup:el=>{const t=state.tasks.find(x=>x.id===el.dataset.id);if(!t)return;const c=JSON.parse(JSON.stringify(t));Object.assign(c,{id:uid(),text:t.text+' (copia)',done:false,doneAt:'',reprog:0,missed:false,missedFrom:'',pomos:0,boxId:'',subs:(t.subs||[]).map(x=>({...x,id:uid(),done:false}))});state.tasks.push(c);save();closeSheet();render();toast('Copia creada')},
+  cal:()=>{calRef=view;openCal()},
+  calNav:el=>{const d=parse(calRef);calRef=ymd(new Date(d.getFullYear(),d.getMonth()+(+el.dataset.n),1));openCal()},
+  calDay:el=>{view=el.dataset.d;if(ensureDay(view))save();calRef=null;closeSheet();if(tab!=='hoy'){navPush('tab');tab='hoy'}window.scrollTo(0,0);render()},
+  nSeg:el=>{nSeg=el.dataset.k;render()},
+  noteNew:()=>openNote(''),
+  noteEdit:el=>openNote(el.dataset.id),
+  ntCol:el=>{document.querySelectorAll('#ntC .chip').forEach(c=>c.classList.toggle('on',c===el));$('#sheet').dataset.nc=el.dataset.c},
+  noteSave:el=>{const title=$('#ntT').value.trim(),body=$('#ntB').value;if(!title&&!body.trim()){closeSheet();return}
+    let n=el.dataset.id&&state.notes.find(x=>x.id===el.dataset.id);if(!n){n={id:uid()};state.notes.push(n)}
+    Object.assign(n,{title,body,pin:$('#ntP').checked,color:$('#sheet').dataset.nc||'',upd:new Date().toISOString()});save();closeSheet();render()},
+  noteDel:el=>{if(!confirm('¿Borrar esta nota?'))return;state.notes=state.notes.filter(x=>x.id!==el.dataset.id);save();closeSheet();render()},
+  noteTask:el=>{const n=state.notes.find(x=>x.id===el.dataset.id);if(!n)return;state.tasks.push(newTask({text:($('#ntT').value.trim()||n.title||n.body.slice(0,60)).trim()}));save();toast('Tarea creada en el banco')},
+  foldNew:()=>openFold(''),
+  foldEdit:el=>openFold(el.dataset.id),
+  fdAdd:()=>{const i=$('#fdNew');const v=i.value.trim();if(!v)return;foldDraft.items.push({id:uid(),text:v,done:false});i.value='';renderFoldDraft();i.focus()},
+  fdTg:el=>{const x=foldDraft.items.find(y=>y.id===el.dataset.s);if(x){x.done=!x.done;renderFoldDraft()}},
+  fdDel:el=>{foldDraft.items=foldDraft.items.filter(y=>y.id!==el.dataset.s);renderFoldDraft()},
+  fdBanco:el=>{const x=foldDraft.items.find(y=>y.id===el.dataset.s);if(!x)return;state.tasks.push(newTask({text:x.text}));foldDraft.items=foldDraft.items.filter(y=>y!==x);renderFoldDraft();save();toast('Mandado al banco')},
+  foldSave:()=>{const name=$('#fdN').value.trim();if(!name){toast('Poné un nombre');return}
+    const nv=$('#fdNew');if(nv&&nv.value.trim())foldDraft.items.push({id:uid(),text:nv.value.trim(),done:false});
+    let f=foldDraft.id&&state.folders.find(x=>x.id===foldDraft.id);if(!f){f={id:uid()};state.folders.push(f)}
+    Object.assign(f,{name,emoji:$('#fdE').value.trim()||'📁',date:$('#fdD').value||'',items:foldDraft.items.map(x=>({...x}))});save();closeSheet();render()},
+  foldDel:el=>{if(!confirm('¿Borrar la carpeta y sus ítems?'))return;state.folders=state.folders.filter(x=>x.id!==el.dataset.id);save();closeSheet();render()},
+  fiTg:el=>{const f=state.folders.find(x=>x.id===el.dataset.id);const x=f&&f.items.find(y=>y.id===el.dataset.s);if(x){x.done=!x.done;save();render();if(f.items.every(y=>y.done))toast(f.name+': ¡todo listo! 👏')}},
+  fiAdd:el=>{const i=document.querySelector(`.fiNew[data-id="${el.dataset.id}"]`);const v=i&&i.value.trim();if(!v)return;const f=state.folders.find(x=>x.id===el.dataset.id);f.items.push({id:uid(),text:v,done:false});save();render();const n=document.querySelector(`.fiNew[data-id="${el.dataset.id}"]`);if(n)n.focus()},
   sPer:el=>{sPer=+el.dataset.n;render()},
   qNext:()=>{qOff++;const q=document.querySelector('.quote');if(q)q.outerHTML=quoteHTML()},
   pomoTask:el=>pomoOpen('',el.dataset.id),
@@ -1228,7 +1375,7 @@ const A={
   bf:el=>{bancoF=el.dataset.f;render()},
   editTask:el=>openTask(el.dataset.id),
   eLvl:el=>{document.querySelectorAll('#eLvl .chip').forEach(c=>c.classList.toggle('on',c===el));$('#sheet').dataset.lvl=el.dataset.k},
-  eSave:el=>{const t=state.tasks.find(x=>x.id===el.dataset.id);if(!t)return;t.text=$('#eTxt').value.trim()||t.text;t.blockId=$('#eBlk').value==='__new'?'':$('#eBlk').value;t.tags=[...document.querySelectorAll('#eTags .chip.on[data-id]')].map(c=>c.dataset.id);t.alarm=$('#eAlarm').value||'';t.tipo=$('#eTipo').value;t.due=$('#eDue').value||'';t.nivel=$('#sheet').dataset.lvl||'n';
+  eSave:el=>{const t=state.tasks.find(x=>x.id===el.dataset.id);if(!t)return;t.text=$('#eTxt').value.trim()||t.text;t.blockId=$('#eBlk').value==='__new'?'':$('#eBlk').value;t.tags=[...document.querySelectorAll('#eTags .chip.on[data-id]')].map(c=>c.dataset.id);t.alarm=$('#eAlarm').value||'';{const nv=$('#eSubNew');if(nv&&nv.value.trim())subDraft.push({id:uid(),text:nv.value.trim(),done:false})}t.subs=subDraft.map(x=>({...x}));t.tipo=$('#eTipo').value;t.due=$('#eDue').value||'';t.nivel=$('#sheet').dataset.lvl||'n';
     if(t.due&&t.due>=today()&&t.missed&&t.missedFrom!==t.due)t.missed=false;
     save();closeSheet();render()},
   eDel:el=>{if(!confirm('¿Borrar esta tarea?'))return;state.tasks=state.tasks.filter(x=>x.id!==el.dataset.id);save();closeSheet();render()},
@@ -1261,6 +1408,7 @@ const A={
 document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el)return;const f=A[el.dataset.act];if(f){e.preventDefault();f(el,e)}});
 document.addEventListener('input',e=>{
   const el=e.target;
+  if(el.id==='nSearch'){nQ=el.value;const pos=el.selectionStart;render();const n=$('#nSearch');if(n){n.focus();n.setSelectionRange(pos,pos)}return}
   if(draft&&el.dataset.f==='title')draft.b.title=el.value;
   if(el.dataset.goal){const g=state.goals.find(x=>x.id===el.dataset.goal);if(g){g.progress=+el.value;el.nextElementSibling.textContent=el.value+'%'}}
 });
@@ -1285,7 +1433,8 @@ document.addEventListener('change',e=>{
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){closeSheet();return}
   if(e.key!=='Enter')return;const id=e.target.id;
-  const map={dNew:'dAdd',bTxt:'addBanco',qDet:'qExp',qAmt:'qExp',gDet:'gAdd',mTxt:'mAdd',pNew:'setPnew'};
+  if(e.target.classList.contains('fiNew')){e.preventDefault();A.fiAdd(e.target);return}
+  const map={eSubNew:'sdAdd',fdNew:'fdAdd',dNew:'dAdd',bTxt:'addBanco',qDet:'qExp',qAmt:'qExp',gDet:'gAdd',mTxt:'mAdd',pNew:'setPnew'};
   if(map[id]){e.preventDefault();const btn=document.querySelector(`[data-act="${map[id]}"]`);if(btn)A[map[id]](btn)}
 });
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tick();push();if(pomo&&pomo.running){if(Date.now()>=pomo.endAt)pomoNext(true);else requestWake()}}});
