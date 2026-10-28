@@ -336,6 +336,17 @@ nav.tabs button.on .i{filter:none;opacity:1}
 .emog button.on{box-shadow:0 0 0 2px var(--amber) inset}
 #upd{position:fixed;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top,0px));z-index:95;max-width:536px;margin:0 auto;background:var(--amber);color:#1a1405;border-radius:14px;padding:12px 14px;display:none;align-items:center;gap:10px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.4)}
 #upd.show{display:flex}
+
+.tline{display:flex;height:26px;border-radius:8px;overflow:hidden;background:var(--s3);margin:12px 0 6px}
+.tline i{display:block;height:100%}
+.tline i.fr{background:repeating-linear-gradient(45deg,#7BC59A,#7BC59A 4px,#5fa57e 4px,#5fa57e 8px)}
+.tline i.gp{background:var(--s2)}
+.tlab{display:flex;justify-content:space-between;font-size:11px;color:var(--dim)}
+.bstat{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.bstat:last-child{border-bottom:0}
+.bstat .st{margin-left:auto;font-size:12px;font-weight:700;padding:3px 9px;border-radius:99px;white-space:nowrap}
+.must{background:var(--s1);border:1.5px solid var(--amber);border-radius:18px;padding:12px 14px;margin-bottom:12px}
+.must .mh{display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:4px}
 #alarm{position:fixed;inset:0;z-index:80;background:rgba(10,13,22,.96);display:none;place-items:center;text-align:center;padding:24px}
 #alarm.open{display:grid}
 #alarm .at{font:800 34px/1.1 var(--disp);color:var(--amber);margin:10px 0}
@@ -418,7 +429,7 @@ const LEVELS={u:{name:'Urgente, hacer ya',short:'Urgente',c:'#EF6F6C',o:0},a:{na
 const TIPOS={dia:'Por día',sem:'Semanal',mes:'Mensual'};
 const AREAS={j:{name:'Negocio Javicard',short:'Negocio',c:'#5AB0E8'},d:{name:'Tareas domésticas',short:'Casa',c:'#B9B2A3'},e:{name:'Estudios',short:'Estudios',c:'#B79CF0'},c:{name:'Físico',short:'Físico',c:'#FF8A65'}};
 const AK=Object.keys(AREAS), AMAX=AK.length*5;
-const APP_VERSION='28 oct 2026 · v9';
+const APP_VERSION='28 oct 2026 · v10';
 const HORIZ={mes:'Este mes',tri:'Trimestre',ano:'Este año'};
 
 /* ---------- estado ---------- */
@@ -588,7 +599,7 @@ function render(){
   const miss=banco().filter(t=>t.missed).length;
   $('#bancoBadge').innerHTML=miss?'<span class="badge">'+miss+'</span>':'';
   renderHeader();
-  $('#main').innerHTML=tab==='hoy'?(view===today()&&wMode==='work'?modeSeg()+viewWork():(view===today()?modeSeg():'')+viewHoy()):tab==='banco'?viewBanco():tab==='gastos'?viewGastos():tab==='stats'?viewStats():tab==='notas'?viewNotas():viewMetas();
+  $('#main').innerHTML=tab==='hoy'?hoyView():tab==='banco'?viewBanco():tab==='gastos'?viewGastos():tab==='stats'?viewStats():tab==='notas'?viewNotas():viewMetas();
 }
 function renderHeader(){
   let h;
@@ -668,7 +679,7 @@ function viewHoy(){
 
   // las 3
   const P=state.principals[view]||['','',''];
-  h+=`<div class="sec"><h2>Las 3 de hoy</h2><span class="side">Lo que gana el día</span></div><div class="top3">`;
+  h+=`<div class="sec"><h2>⭐ Las 3 innegociables</h2><span class="side">Sí o sí, hoy</span></div><div class="top3">`;
   for(let i=0;i<3;i++){
     const t=state.tasks.find(x=>x.id===P[i]&&(x.date===view||x.doneAt===view));
     if(t){const bl=blockOf(t.blockId);
@@ -712,6 +723,10 @@ function viewHoy(){
   if(DAY_END-cur>=15)h+=gapEl(cur,DAY_END);
   if(!nowShown)h+=nowLine();
   h+='</div>';
+  {const R0=blocksReport(view);if(R0.total&&view<=today()){const c=R0.c;
+    h+=`<div class="sec"><h2>¿Qué bloques hiciste?</h2><span class="side">✅ ${c.hecho} · ½ ${c['a medias']} · ❌ ${c['no hecho']}${c.salteado?' · ⏭ '+c.salteado:''}</span></div><div class="card" style="padding:4px 14px">`+
+      R0.bx.map(b=>{const [lab,ic,col]=blockStatus(b),bl=blockOf(b.blockId),dn=tasksOfBox(b.id).filter(t=>t.done).length,tt=tasksOfBox(b.id).length;
+        return `<div class="bstat"><span>${bl.emoji}</span><span><b>${esc(bl.name)}</b><br><span class="muted" style="font-size:12px">${hm(b.start)}${b.movedFrom!=null?' · movido de '+hm(b.movedFrom):''}${tt?' · '+dn+'/'+tt+' tareas':''}</span></span><span class="st" style="color:${col};border:1.5px solid ${col}">${ic} ${lab}</span>${['no hecho','a medias'].includes(lab)&&view===today()?`<button class="ib" data-act="moveLater" data-id="${b.id}" aria-label="Pasar más tarde">⏰</button>`:''}</div>`}).join('')+'</div>'}}
   if(!past){
     h+=`<div class="row" style="margin-top:10px;gap:8px">
       <button class="btn grow" data-act="plan">🧱 Mi plantilla</button>
@@ -834,20 +849,93 @@ function viewGastos(){
   return h;
 }
 
+/* ---------- TIEMPO LIBRE, MOVER, ESTADO DE BLOQUES ---------- */
+const isFree=b=>b&&b.blockId==='libre';
+function freeBlock(){return ensureBlock('libre','Tiempo libre','🌴','#7BC59A')}
+function slotOk(d,s,dur,ignore){const e=s+dur;if(e>1440)return false;return !boxesOf(d).some(x=>!ignore.includes(x.id)&&x.start<e&&s<x.start+x.dur)}
+function findSlot(d,dur,from,ignore){let s=Math.max(DAY_START,Math.ceil(from/15)*15);
+  for(;s+dur<=1440;s+=15)if(slotOk(d,s,dur,ignore))return {s,dur};
+  for(let du=dur-15;du>=30;du-=15)for(s=Math.max(DAY_START,Math.ceil(from/15)*15);s+du<=1440;s+=15)if(slotOk(d,s,du,ignore))return {s,dur:du};
+  return null}
+function moveLater(b,after){
+  const d=b.date,from=Math.max(after||0,d===today()?nowMin():0);
+  let sl=findSlot(d,b.dur,from,[b.id]);
+  if(sl){if(b.movedFrom==null)b.movedFrom=b.start;b.start=sl.s;b.dur=sl.dur;b.started=false;b.skipped=false;b.late=null;return 'pasó a las '+hm(sl.s)+(sl.dur<b.dur?' ('+fmtDur(sl.dur)+')':'')}
+  const t2=addDays(d,1);ensureDay(t2);sl=findSlot(t2,b.dur,DAY_START,[b.id]);
+  if(sl){if(b.movedFrom==null)b.movedFrom=b.start;tasksOfBox(b.id).forEach(t=>{if(!t.done)t.date=t2});b.date=t2;b.start=sl.s;b.dur=sl.dur;b.started=false;b.skipped=false;return 'pasó a mañana '+hm(sl.s)}
+  return null}
+function blockStatus(b){
+  const ts=tasksOfBox(b.id),dn=ts.filter(t=>t.done).length,end=b.start+b.dur,n=b.date===today()?nowMin():(b.date<today()?9999:-1);
+  const lateEnd=b.late!=null?b.late+60:0;
+  if(b.skipped)return ['salteado','⏭','var(--mu)'];
+  if(b.done||(ts.length&&dn===ts.length))return ['hecho','✅','var(--ok)'];
+  const touched=b.started||dn||b.pomos;
+  if(n<end&&n<lateEnd||n<end)return touched?['en curso','▶','var(--amber)']:(n>=b.start?['ahora','▶','var(--amber)']:['pendiente','⏳','var(--mu)']);
+  if(b.late!=null&&n<lateEnd)return ['en curso','▶','var(--amber)'];
+  return touched?['a medias','½','var(--amber)']:['no hecho','❌','var(--bad)'];
+}
+function blocksReport(d){const bx=boxesOf(d).filter(b=>!isFree(b));const c={hecho:0,'a medias':0,'no hecho':0,salteado:0};bx.forEach(b=>{const k=blockStatus(b)[0];if(k in c)c[k]++});return {bx,c,total:bx.length}}
+function principalsOf(d){return (state.principals[d]||[]).map(id=>state.tasks.find(t=>t.id===id&&(t.date===d||t.doneAt===d))).filter(Boolean)}
+function mustHTML(){
+  const P=principalsOf(today()),dn=P.filter(t=>t.done).length;
+  if(P.length<3)return `<div class="must"><div class="mh"><span>⭐ Tus 3 innegociables</span><span class="mini amb">${P.length}/3 elegidas</span></div>
+    <div class="wsub" style="margin-bottom:8px">Antes de arrancar: ¿cuáles son las 3 cosas que <b>sí o sí</b> tienen que pasar hoy?</div>
+    ${P.map(t=>`<div class="subrow"><button class="ck ${t.done?'on':''}" data-act="tg" data-id="${t.id}"></button><span>${esc(t.text)}</span></div>`).join('')}
+    <button class="btn primary block" style="margin-top:8px" data-act="pickP" data-slot="${[0,1,2].find(i=>!principalsOf(today()).some(t=>t.id===(state.principals[today()]||[])[i]))??0}">Elegir la ${P.length+1}ª</button></div>`;
+  return `<div class="must" style="${dn===3?'border-color:var(--ok)':''}"><div class="mh"><span>⭐ Innegociables</span><span class="mini ${dn===3?'':'amb'}" style="${dn===3?'background:var(--ok);color:#12301f':''}">${dn}/3${dn===3?' 🏆':''}</span></div>
+    ${P.map(t=>`<div class="subrow ${t.done?'done':''}"><button class="ck ${t.done?'on':''}" data-act="tg" data-id="${t.id}" aria-label="Marcar"></button><span class="grow">${esc(t.text)}</span>${t.done?'':`<button class="ib" data-act="pomoTask" data-id="${t.id}" aria-label="Pomodoro">🍅</button>`}</div>`).join('')}
+    ${dn===3?'<div class="wsub" style="margin-top:6px">Día ganado. Todo lo demás es extra. +1% 💪</div>':''}</div>`;
+}
+function viewFree(){
+  const d=view,isT=d===today(),bx=boxesOf(d),n=isT?nowMin():DAY_START;
+  const work=bx.filter(b=>!isFree(b)),fr=bx.filter(isFree);
+  const wMin=work.reduce((a,b)=>a+b.dur,0),fMin=fr.reduce((a,b)=>a+b.dur,0);
+  // gaps
+  const gaps=[];let cur=DAY_START;bx.slice().sort((a,b)=>a.start-b.start).forEach(b=>{if(b.start>cur)gaps.push([cur,b.start]);cur=Math.max(cur,b.start+b.dur)});if(cur<1440)gaps.push([cur,1440]);
+  const realGaps=gaps.map(([a,b])=>[Math.max(a,n),b]).filter(([a,b])=>b-a>=15),gMin=realGaps.reduce((x,[a,b])=>x+b-a,0);
+  const seg=[];let c2=DAY_START;bx.slice().sort((a,b)=>a.start-b.start).forEach(b=>{if(b.start>c2)seg.push(`<i class="gp" style="flex:${b.start-c2}"></i>`);seg.push(`<i class="${isFree(b)?'fr':''}" style="flex:${b.dur};${isFree(b)?'':'background:'+blockOf(b.blockId).color}" title="${hm(b.start)} ${esc(blockOf(b.blockId).name)}"></i>`);c2=Math.max(c2,b.start+b.dur)});if(c2<1440)seg.push(`<i class="gp" style="flex:${1440-c2}"></i>`);
+  let h=`<div class="hero" style="--hc:#7BC59A"><div class="hk">${isT?'Tu día de hoy':'Ese día'} de 9:00 a 00:00</div>
+    <div class="tline">${seg.join('')}</div><div class="tlab"><span>9</span><span>12</span><span>15</span><span>18</span><span>21</span><span>24</span></div>
+    <div class="todayg"><div><b>${fmtDur(wMin)||'0'}</b><span>🧱 Bloques</span></div><div><b style="color:#7BC59A">${fmtDur(fMin)||'0'}</b><span>🌴 Libre planificado</span></div><div><b>${fmtDur(gMin)||'0'}</b><span>Sin asignar${isT?' (desde ahora)':''}</span></div></div>
+    <div class="hnext" style="margin-top:10px">${wMin<fMin?'Ojo: hoy hay más tiempo libre que trabajo para tu negocio.':'El tiempo libre también se planifica: así lo disfrutás sin culpa y el negocio no se queda sin horas.'}</div></div>`;
+  h+=`<div class="sec"><h2>🌴 Agregar tiempo libre</h2></div><div class="card stack">
+    <div class="chips">${['⚽ Jugar a la pelota','🎮 Jugar','👫 Salir','🍻 Amigos','📺 Serie','😴 Siesta','❤️ Pareja','👨‍👩‍👧 Familia'].map(x=>`<button class="chip" data-act="frChip" data-t="${x}">${x}</button>`).join('')}</div>
+    <input id="frT" placeholder="Qué vas a hacer">
+    <div class="row"><select id="frS" class="grow">${(()=>{let o='';const def=(realGaps[0]||[n])[0];for(let m=DAY_START;m<1440;m+=15)o+=`<option value="${m}" ${m===Math.ceil(def/15)*15?'selected':''}>${hm(m)}</option>`;return o})()}</select>
+      <select id="frD" class="grow">${[30,60,90,120,150,180,240].map(m=>`<option value="${m}" ${m===90?'selected':''}>${fmtDur(m)}</option>`).join('')}</select></div>
+    <button class="btn primary block" data-act="frAdd">Agregar a mi día</button></div>`;
+  h+=`<div class="sec"><h2>Libre planificado</h2><span class="side">${fr.length}</span></div><div class="card" style="padding:4px 14px">`+
+    (fr.length?fr.map(b=>`<div class="bstat"><span>🌴</span><span><b>${esc(b.title||'Tiempo libre')}</b><br><span class="muted" style="font-size:12px">${hm(b.start)} a ${b.start+b.dur>=1440?'00:00':hm(b.start+b.dur)}</span></span><button class="x" style="margin-left:auto" data-act="frDel" data-id="${b.id}" aria-label="Borrar">✕</button></div>`).join(''):'<div class="empty">Nada todavía. Si no lo anotás, parece que todo el día está libre.</div>')+'</div>';
+  h+=`<div class="sec"><h2>Huecos sin asignar</h2></div><div class="card" style="padding:4px 14px">`+
+    (realGaps.length?realGaps.map(([a,b])=>`<div class="bstat"><span>⬜</span><span>${hm(a)} a ${b>=1440?'00:00':hm(b)} <span class="muted">(${fmtDur(b-a)})</span></span></div>`).join(''):'<div class="empty">No queda tiempo sin asignar.</div>')+'</div>';
+  return h;
+}
+let frPending=null;
+function frAddNow(t,s,du){const fb=freeBlock();state.boxes.push({id:uid(),date:view,start:s,dur:du,blockId:fb,title:t,aviso:true,avisoMin:0})}
+function openClash(t,s,du,cl){
+  frPending={t,s,du,ids:cl.map(b=>b.id)};
+  sheet(`<h3>Choca con ${cl.length>1?cl.length+' bloques':'un bloque'}</h3>
+    <div class="tipbox">🌴 <b>${esc(t)}</b> de ${hm(s)} a ${hm(s+du)} se pisa con:<br>${cl.map(b=>`${blockOf(b.blockId).emoji} <b>${esc(blockOf(b.blockId).name)}</b> (${hm(b.start)} a ${hm(b.start+b.dur)})`).join('<br>')}</div>
+    <button class="go" data-act="clMove">⏰ Pasar ${cl.length>1?'esos bloques':'el bloque'} más tarde<small>Lo busco en el próximo hueco libre de hoy (o mañana)</small></button>
+    <button class="go" style="background:var(--s2);color:var(--tx)" data-act="clSkip">Saltear ${cl.length>1?'esos bloques':'el bloque'} hoy<small>Sus tareas quedan a medias, guardadas</small></button>
+    <button class="btn block" style="margin-top:12px" data-act="closeSheet">Cancelar, elijo otro horario</button>`);
+}
+
 /* ---------- MODO TRABAJO ---------- */
 let wMode=(()=>{try{return localStorage.getItem('jt_wmode')||'work'}catch(e){return 'work'}})(), wAll=false;
-function modeSeg(){return `<div class="seg" style="margin:4px 0 12px">${[['work','🎯 Trabajo'],['plan','🗓️ Planificar']].map(([k,v])=>`<button class="${wMode===k?'on':''}" data-act="wMode" data-k="${k}">${v}</button>`).join('')}</div>`}
+function hoyView(){const t=view===today();const m=(!t&&wMode==='work')?'plan':wMode;return modeSeg(t,m)+(m==='work'?viewWork():m==='free'?viewFree():viewHoy())}
+function modeSeg(t,m){return `<div class="seg" style="margin:4px 0 12px">${[['work','🎯 Trabajo'],['plan','🗓️ Planificar'],['free','🌴 Libre']].filter(x=>t||x[0]!=='work').map(([k,v])=>`<button class="${m===k?'on':''}" data-act="wMode" data-k="${k}">${v}</button>`).join('')}</div>`}
 const boxDone=b=>b.done||b.skipped||(tasksOfBox(b.id).length>0&&tasksOfBox(b.id).every(x=>x.done));
 function workState(){
   const n=nowMin(),bx=boxesOf(today());
   const late=bx.find(b=>b.late!=null&&n<b.late+60&&!boxDone(b));if(late)return {b:late,mode:'late',left:late.late+60-n};
-  const missed=bx.find(b=>b.start+b.dur<=n&&!boxDone(b)&&!b.started&&b.late==null);if(missed)return {b:missed,mode:'missed'};
+  const missed=bx.find(b=>!isFree(b)&&b.start+b.dur<=n&&!boxDone(b)&&!b.started&&b.late==null);if(missed)return {b:missed,mode:'missed'};
   const cur=bx.find(b=>n>=b.start&&n<b.start+b.dur&&!b.skipped);if(cur)return {b:cur,mode:'now',left:cur.start+cur.dur-n};
   const nx=bx.find(b=>b.start>n&&!b.skipped);if(nx)return {b:nx,mode:'next',left:nx.start-n};
   return {mode:'none'};
 }
 function viewWork(){
-  const W=workState();let h='';
+  const W=workState();let h=mustHTML();
   if(W.mode==='none'){
     const bx=boxesOf(today());
     h+=`<div class="wcard" style="--c:var(--amber)"><div class="wemo">${bx.length?'🏁':'🧱'}</div><div class="wname">${bx.length?'No quedan bloques hoy':'Hoy no tenés bloques'}</div>
@@ -857,11 +945,18 @@ function viewWork(){
     return h+quoteHTML();
   }
   const b=W.b,bl=blockOf(b.blockId),ts=tasksOfBox(b.id).filter(t=>!t.done),doneN=tasksOfBox(b.id).filter(t=>t.done).length;
+  if(isFree(b)){const nx=boxesOf(today()).find(x=>x.start>=b.start+b.dur&&!isFree(x));const P=principalsOf(today()),pend=P.filter(t=>!t.done).length;
+    h+=`<div class="wcard" style="--c:#7BC59A"><div class="wsub">${W.mode==='next'?'Empieza a las '+hm(b.start):'Hasta las '+hm(b.start+b.dur)}</div><div class="wemo" style="margin-top:10px">🌴</div><div class="wname">${esc(b.title||'Tiempo libre')}</div>
+      <div class="wtime">${W.mode==='next'?'en '+fmtDur(W.left):fmtDur(W.left)}</div>
+      <div class="wsub">${W.mode==='next'?'Hasta entonces, a trabajar.':pend?'Disfrutalo, pero acordate: te falta'+(pend>1?'n '+pend:' 1')+' innegociable'+(pend>1?'s':'')+'.':'Ganado. Disfrutalo sin culpa. 🙌'}</div>
+      ${nx?`<div class="wsub" style="margin-top:10px">Después: ${blockOf(nx.blockId).emoji} ${esc(blockOf(nx.blockId).name)} a las ${hm(nx.start)}</div>`:''}</div>`;
+    return h+quoteHTML()}
   if(W.mode==='missed'){
     h+=`<div class="wcard" style="--c:${bl.color}"><div class="wsub">Quedó pendiente de ${hm(b.start)} a ${b.start+b.dur>=1440?'00:00':hm(b.start+b.dur)}</div>
       <div class="wemo" style="margin-top:10px">${bl.emoji}</div><div class="wname">${esc(bl.name)}</div>${b.title?`<div class="wsub">${esc(b.title)}</div>`:''}
       <div class="wnow"><div class="k">Te levantaste tarde, todo bien</div><div class="t" style="font-size:17px">¿Le das 1 hora ahora, con pomodoros?${ts.length?' Tenés '+ts.length+' tarea'+(ts.length>1?'s':'')+'.':''}</div></div>
       <button class="go" data-act="go" data-id="${b.id}" data-late="1">Sí, 1 hora · 5·4·3·2·1<small>Arranca con 5 minutos, después seguís</small></button>
+      <button class="go" style="background:var(--s2);color:var(--tx)" data-act="moveLater" data-id="${b.id}">⏰ Pasarlo a otro horario<small>Lo meto en el próximo hueco libre</small></button>
       <button class="go" style="background:var(--s2);color:var(--tx)" data-act="wSkip" data-id="${b.id}">Saltar, paso al siguiente<small>Sus tareas quedan guardadas</small></button></div>`;
     return h;
   }
@@ -884,7 +979,7 @@ function viewWork(){
   }
   if(pomo&&pomo.running&&pomo.boxId===b.id)h+=`<button class="go" data-act="pomoShow">🍅 Volver al foco<small>Ya estás en marcha, seguí</small></button>`;
   else if(W.mode!=='next'||W.left<=15)h+=`<button class="go" data-act="go" data-id="${b.id}">5·4·3·2·1 ¡Arrancar!<small>Solo 5 minutos. Si después querés parar, parás.</small></button>`;
-  h+=`<div class="row" style="margin-top:10px"><button class="btn grow" data-act="pomoOpen" data-id="${b.id}">🍅 Pomodoro 25 min</button><button class="btn grow" data-act="wSkip" data-id="${b.id}">⏭ Saltar bloque</button></div></div>`;
+  h+=`<div class="row" style="margin-top:10px"><button class="btn grow" data-act="pomoOpen" data-id="${b.id}">🍅 Pomodoro 25 min</button><button class="btn grow" data-act="moveLater" data-id="${b.id}">⏰ Más tarde</button><button class="btn" data-act="wSkip" data-id="${b.id}" aria-label="Saltar">⏭</button></div></div>`;
   const nx=boxesOf(today()).find(x=>x.start>b.start&&x.id!==b.id&&!x.skipped);
   if(nx)h+=`<div class="muted" style="font-size:14px;text-align:center;margin-bottom:12px">Después: ${blockOf(nx.blockId).emoji} ${esc(blockOf(nx.blockId).name)} a las ${hm(nx.start)}</div>`;
   return h+quoteHTML();
@@ -1063,7 +1158,8 @@ function dayStats(d){
   const missed=state.tasks.filter(t=>t.missedFrom===d).length+(d===today()?state.tasks.filter(t=>t.status==='plan'&&t.date===d&&!t.done&&!P.includes(t.id)).length:0)+(pt.length-pDone);
   const sc=state.scores[d]||{};const score=AK.reduce((a,k)=>a+(sc[k]||0),0);
   const spent=state.expenses.filter(e=>e.date===d).reduce((a,e)=>a+e.amount,0);
-  return {pSet:pt.length,pDone,others:otherT.length,otherT,done:pDone+otherT.length,missed,score,sc,spent,pomos:+state.pomoLog[d]||0};
+  const BR=blocksReport(d);
+  return {bTot:BR.total,bDone:BR.c.hecho,bHalf:BR.c['a medias'],pSet:pt.length,pDone,others:otherT.length,otherT,done:pDone+otherT.length,missed,score,sc,spent,pomos:+state.pomoLog[d]||0};
 }
 function streaks(){
   const ok=d=>{const s=dayStats(d);return s.pSet===3&&s.pDone===3};
@@ -1107,6 +1203,8 @@ function viewStats(){
     <div class="kpi"><b>${Math.round(pRate)}%</b><span>Principales cumplidas (${full} día${full===1?'':'s'} con las 3)</span>${delta(pRate,pRateP)}</div>
     <div class="kpi"><b>${scAvg?scAvg.toFixed(1):'–'}<small style="font-size:13px;color:var(--mu)">/${AMAX}</small></b><span>Puntaje promedio</span>${delta(scAvg,scAvgP)}</div>
     <div class="kpi"><b>🍅 ${pom}</b><span>${Math.round(pom*PD().foco/60*10)/10} h de foco</span>${delta(pom,pomP)}</div>
+    <div class="kpi"><b>${sum(S,s=>s.bTot)?Math.round(sum(S,s=>s.bDone+s.bHalf*.5)/sum(S,s=>s.bTot)*100):0}%</b><span>Bloques cumplidos (✅ ${sum(S,s=>s.bDone)} · ½ ${sum(S,s=>s.bHalf)} de ${sum(S,s=>s.bTot)})</span>${delta(sum(S,s=>s.bDone+s.bHalf*.5),sum(Sp,s=>s.bDone+s.bHalf*.5))}</div>
+    <div class="kpi"><b>${S.filter(s=>s.pSet===3&&s.pDone===3).length}/${N}</b><span>Días con las 3 innegociables</span>${delta(S.filter(s=>s.pSet===3&&s.pDone===3).length,Sp.filter(s=>s.pSet===3&&s.pDone===3).length)}</div>
     <div class="kpi" style="grid-column:1/-1"><b>${money(sp)}</b><span>Gastado (${money(sp/N)} por día)</span>${delta(sp,spP,true)}</div></div>`;
   // tareas por día
   h+=`<div class="sec"><h2>Tareas por día</h2></div><div class="card">${bars(days,[{c:'#F2B544',vals:S.map(s=>s.pDone)},{c:'#5AB0E8',vals:S.map(s=>s.others)},{c:'#3A4360',vals:S.map(s=>s.missed)}],Math.max(...S.map(s=>s.done+s.missed)),130)}
@@ -1213,6 +1311,7 @@ function renderBoxSheet(){
     <div class="lbl">${d.all?'Todo el banco':'Pendientes de '+esc(bl.name)+' en el banco'}</div>
     ${pool.length?'<ul class="tl">'+pool.map(t=>`<li><span class="lvl" style="background:${(LEVELS[t.nivel]||LEVELS.n).c}"></span><span class="tx">${d.all?blockOf(t.blockId).emoji+' ':''}${esc(t.text)}${t.missed?' <span style="color:var(--bad);font-size:12px">no se hizo</span>':''}</span><button class="hoybtn" data-act="dPick" data-id="${t.id}">+ Sumar</button></li>`).join('')+'</ul>':'<div class="muted" style="font-size:14px">No hay pendientes de este bloque.</div>'}
     <button class="link" style="margin-top:8px" data-act="dAll">${d.all?'Ver solo este bloque':'Ver todo el banco'}</button>
+    ${d.isNew||isFree(b)?'':'<button class="btn block" style="margin-top:14px" data-act="moveLater" data-id="'+b.id+'">⏰ Pasar este bloque más tarde</button>'}
     <div class="shfoot">${d.isNew?'<button class="btn" data-act="closeSheet">Cancelar</button>':'<button class="btn danger" data-act="dDel">Borrar</button>'}<button class="btn primary" data-act="dSave">Guardar caja</button></div>`);
 }
 function boxSave(){
@@ -1369,6 +1468,9 @@ function tick(){
   state.tasks.forEach(x=>{if(!x.alarm||x.done)return;if(!(x.status==='plan'&&x.date===t)&&x.due!==t)return;
     const [h,m]=x.alarm.split(':').map(Number),at=h*60+m,k=t+x.id+'@'+x.alarm;
     if(n>=at&&n<at+15&&!fired.has(k)){markFired(k);alarm('⏰ '+x.text,'Alarma de las '+x.alarm)}});
+  [[600,'mañana'],[1140,'tarde'],[1320,'noche']].forEach(([at,lab])=>{const k=t+'must'+at;if(fired.has(k)||n<at||n>=at+10)return;markFired(k);const P=principalsOf(t),pend=P.filter(x=>!x.done);
+    if(P.length<3&&at===600)alarm('⭐ Elegí tus 3 innegociables','Las 3 cosas que sí o sí tienen que pasar hoy. 1 minuto y arrancás.');
+    else if(P.length&&pend.length&&at>600)alarm('⭐ Te falta'+(pend.length>1?'n '+pend.length:' 1')+' de tus 3',pend.map(x=>x.text).join(' · ')+(at>=1320?'. Último empujón: 5·4·3·2·1.':''));});
   if(state.settings.closeAlarm&&n>=1410&&n<1412&&!fired.has(t+'close')){markFired(t+'close');alarm('Cierre del día','Marcá lo hecho y puntuá el día. Lo pendiente se va al banco.')}
 }
 
@@ -1485,6 +1587,22 @@ const A={
   dAviso:el=>{const m=+el.dataset.m;draft.b.avisoMin=m;draft.b.aviso=m>=0;renderBoxSheet()},
   eAlarmClr:()=>{$('#eAlarm').value=''},
   pomoOpen:el=>pomoOpen(el.dataset.id),
+  frChip:el=>{$('#frT').value=el.dataset.t},
+  frAdd:()=>{const t=$('#frT').value.trim()||'Tiempo libre',st=+$('#frS').value,du=+$('#frD').value;
+    if(st+du>1440){toast('Se pasa de las 00:00');return}
+    const fr=boxesOf(view).filter(x=>x.start<st+du&&st<x.start+x.dur);
+    if(fr.some(isFree)){toast('Ya tenés tiempo libre en ese horario');return}
+    const P=principalsOf(view),pend=P.filter(x=>!x.done).length;
+    if(view===today()&&(P.length<3||pend)&&!confirm(P.length<3?'Todavía no elegiste tus 3 innegociables. ¿Agregás tiempo libre igual?':'Te falta'+(pend>1?'n '+pend:' 1')+' de tus 3 innegociables. ¿Agregás tiempo libre igual?'))return;
+    if(fr.length){openClash(t,st,du,fr);return}
+    frAddNow(t,st,du);save();render();toast('🌴 Agregado: '+t)},
+  frDel:el=>{state.boxes=state.boxes.filter(b=>b.id!==el.dataset.id);save();render()},
+  clMove:()=>{const f=frPending;if(!f)return;frAddNow(f.t,f.s,f.du);const msgs=[];
+    f.ids.forEach(id=>{const b=state.boxes.find(x=>x.id===id);if(!b)return;const r=moveLater(b,f.s+f.du);msgs.push(blockOf(b.blockId).name+(r?' '+r:' no entró: lo salteé'));if(!r){b.skipped=true}});
+    save();closeSheet();render();toast(msgs.join(' · '))},
+  clSkip:()=>{const f=frPending;if(!f)return;frAddNow(f.t,f.s,f.du);f.ids.forEach(id=>{const b=state.boxes.find(x=>x.id===id);if(b){b.skipped=true;tasksOfBox(b.id).filter(t=>!t.done).forEach(t=>t.half=true)}});save();closeSheet();render();toast('Agregado. Bloque salteado')},
+  moveLater:el=>{const b=state.boxes.find(x=>x.id===el.dataset.id);if(!b)return;const r=moveLater(b,b.date===today()?nowMin():0);
+    if(!r){toast('No hay lugar hoy ni mañana. Achicá otro bloque.');return}save();closeSheet();render();toast(blockOf(b.blockId).emoji+' '+blockOf(b.blockId).name+' '+r)},
   wMode:el=>{wMode=el.dataset.k;try{localStorage.setItem('jt_wmode',wMode)}catch(e){}window.scrollTo(0,0);render()},
   wAll:()=>{wAll=!wAll;render()},
   wAdd:el=>{const i=$('#wNew');const v=i&&i.value.trim();if(!v)return;const b=state.boxes.find(x=>x.id===el.dataset.b);state.tasks.push(newTask({text:v,blockId:b?b.blockId:'',status:'plan',date:today(),boxId:el.dataset.b}));save();render()},
