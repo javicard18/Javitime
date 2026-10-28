@@ -429,7 +429,7 @@ const LEVELS={u:{name:'Urgente, hacer ya',short:'Urgente',c:'#EF6F6C',o:0},a:{na
 const TIPOS={dia:'Por día',sem:'Semanal',mes:'Mensual'};
 const AREAS={j:{name:'Negocio Javicard',short:'Negocio',c:'#5AB0E8'},d:{name:'Tareas domésticas',short:'Casa',c:'#B9B2A3'},e:{name:'Estudios',short:'Estudios',c:'#B79CF0'},c:{name:'Físico',short:'Físico',c:'#FF8A65'}};
 const AK=Object.keys(AREAS), AMAX=AK.length*5;
-const APP_VERSION='28 oct 2026 · v10';
+const APP_VERSION='28 oct 2026 · v12';
 const HORIZ={mes:'Este mes',tri:'Trimestre',ano:'Este año'};
 
 /* ---------- estado ---------- */
@@ -459,6 +459,7 @@ function normalize(p){
   s.tasks.forEach(t=>{t.tags=arr(t.tags);t.subs=arr(t.subs)});
   s.folders.forEach(f=>f.items=arr(f.items));
   s.pomoLog=p.pomoLog||{};
+  if(!s.settings.tagsV11){s.tasks.forEach(t=>{if(!t.blockId)return;const b=s.blocks.find(x=>x.id===t.blockId);if(b){const id='b_'+b.id;if(!s.tags.some(g=>g.id===id))s.tags.push({id,name:b.name,color:b.color});if(!t.tags.includes(id))t.tags.push(id)}t.blockId=''});s.settings.tagsV11=1}
   if(!s.settings.blocksV2){[{id:'estudio',name:'Estudio',emoji:'📚',color:'#D9C36A'},{id:'fisico',name:'Tareas físicas',emoji:'🏋️',color:'#8FD16A'}].forEach((b,i)=>{if(!s.blocks.some(x=>x.id===b.id))s.blocks.push({...b,o:900+i})});s.settings.blocksV2=1;}
   ['blocks','ecats','tags','fixed','goals','folders'].forEach(c=>{s[c].forEach((x,i)=>{if(x.o==null)x.o=i});s[c].sort((a,b)=>a.o-b.o)});
   Object.keys(s.principals).forEach(k=>{const a=arr(s.principals[k]);s.principals[k]=[a[0]||'',a[1]||'',a[2]||''];});
@@ -612,7 +613,7 @@ function renderHeader(){
       <button class="iconbtn" data-act="day" data-n="1" aria-label="Día siguiente">›</button>
       <button class="iconbtn" data-act="cal" aria-label="Calendario">📅</button>`;
   }else{
-    const t={banco:['Banco de tareas','Todo lo pendiente, agrupado por bloque'],gastos:['Gastos personales','Lo que gastás y cuánto te queda'],metas:['Metas','Tu rumbo y cómo vienen tus días'],stats:['Progreso','Medí cómo mejorás día a día'],notas:['Notas y carpetas','Ideas, listas y tareas complejas']}[tab];
+    const t={banco:['Banco de tareas','Todo lo pendiente, por etiqueta'],gastos:['Gastos personales','Lo que gastás y cuánto te queda'],metas:['Metas','Tu rumbo y cómo vienen tus días'],stats:['Progreso','Medí cómo mejorás día a día'],notas:['Notas y carpetas','Ideas, listas y tareas complejas']}[tab];
     h=`<button class="iconbtn" data-act="tab" data-t="hoy" aria-label="Volver a Hoy">‹</button><div class="htitle"><h1>${t[0]}</h1><div class="sub">${t[1]}</div></div>`;
   }
   h+=`<span class="sync ${window._sync||''}" id="syncDot" title="Sincronización"></span><button class="iconbtn" data-act="settings" aria-label="Configuración">⚙︎</button>`;
@@ -642,7 +643,7 @@ function heroHTML(){
       <div class="hname">${bl.emoji} ${esc(cur.title||bl.name)}</div>
       <div class="hbar"><i style="width:${pct}%"></i></div>
       ${ts.length?'<ul class="tl">'+ts.map(taskLi).join('')+'</ul>':''}
-      ${(()=>{if(ts.some(t=>!t.done))return '';const sug=banco().filter(t=>t.blockId===cur.blockId).sort((x,y)=>(y.half?1:0)-(x.half?1:0)||(LEVELS[x.nivel]||LEVELS.n).o-(LEVELS[y.nivel]||LEVELS.n).o).slice(0,3);
+      ${(()=>{if(ts.some(t=>!t.done))return '';const sug=sugFor(cur.blockId).slice(0,3);
         return sug.length?`<div class="lbl" style="margin-top:6px">Del banco para este bloque</div><ul class="tl">${sug.map(t=>`<li><span class="tx">${esc(t.text)}${t.half?' <span class="mini amb">½ a medias</span>':''}</span><button class="hoybtn" data-act="toBox" data-id="${t.id}" data-b="${cur.id}">+ Hacer</button></li>`).join('')}</ul>`
           :'<div class="hnext" style="margin-top:6px">Sin tareas: tocá el bloque abajo y sumá una, o arrancá igual con lo primero que se te ocurra.</div>'})()}
       <div class="row" style="margin:12px 0 10px"><button class="btn primary grow" data-act="starter" data-id="${cur.id}">🚀 Arrancar: solo 5 min</button><button class="btn" data-act="pomoOpen" data-id="${cur.id}" aria-label="Pomodoro">🍅${cur.pomos?' '+cur.pomos:''}</button></div>
@@ -737,7 +738,7 @@ function viewHoy(){
   const loose=state.tasks.filter(t=>t.status==='plan'&&t.date===view&&!t.boxId);
   if(loose.length){
     h+=`<div class="sec"><h2>Sin horario</h2><span class="side">Metelas en una caja</span></div><div class="card"><ul class="tl">`+
-      loose.map(t=>`<li class="${t.done?'done':''}"><button class="ck ${t.done?'on':''}" data-act="tg" data-id="${t.id}" aria-label="Marcar"></button><button class="tx" style="text-align:left" data-act="editTask" data-id="${t.id}">${blockOf(t.blockId).emoji} ${esc(t.text)}${t.alarm?' <span class="mini">⏰ '+t.alarm+'</span>':''}${tagPills(t)}</button>${subBadge(t)}${t.done||past?'':`<button class="ib" data-act="pomoTask" data-id="${t.id}" aria-label="Pomodoro con esta tarea">🍅</button>`}<button class="ib" data-act="editTask" data-id="${t.id}" aria-label="Editar tarea">✎</button>${past?'':`<button class="x" data-act="toBanco" data-id="${t.id}" aria-label="Devolver al banco" title="Devolver al banco">↩</button>`}</li>${subList(t)}`).join('')+'</ul></div>';
+      loose.map(t=>`<li class="${t.done?'done':''}"><button class="ck ${t.done?'on':''}" data-act="tg" data-id="${t.id}" aria-label="Marcar"></button><button class="tx" style="text-align:left" data-act="editTask" data-id="${t.id}">${esc(t.text)}${t.alarm?' <span class="mini">⏰ '+t.alarm+'</span>':''}${tagPills(t)}</button>${subBadge(t)}${t.done||past?'':`<button class="ib" data-act="pomoTask" data-id="${t.id}" aria-label="Pomodoro con esta tarea">🍅</button>`}<button class="ib" data-act="editTask" data-id="${t.id}" aria-label="Editar tarea">✎</button>${past?'':`<button class="x" data-act="toBanco" data-id="${t.id}" aria-label="Devolver al banco" title="Devolver al banco">↩</button>`}</li>${subList(t)}`).join('')+'</ul></div>';
   }
 
   // gasto rápido
@@ -765,18 +766,18 @@ function viewBanco(){
   const names={todas:'Todas',miss:'No realizadas',dia:'Por día',sem:'Semanales',mes:'Mensuales'};
   let h=`<div class="card stack">
     <div class="row"><input id="bTxt" class="grow" placeholder="¿Qué tenés que hacer?"><button class="btn primary" data-act="addBanco">Agregar</button></div>
-    <div class="row"><select id="bBlk" class="grow">${blockOpts(bForm.b)}</select>
-      <select id="bLvl" class="grow">${Object.entries(LEVELS).map(([k,v])=>`<option value="${k}" ${k===bForm.l?'selected':''}>${v.name}</option>`).join('')}</select></div>
-    <div class="row"><select id="bTipo" class="grow">${Object.entries(TIPOS).map(([k,v])=>`<option value="${k}" ${k===bForm.t?'selected':''}>${v}</option>`).join('')}</select>
-      <input id="bDue" type="date" class="grow" title="Fecha (opcional)"></div>
     <div class="chips" id="bTags">${tagChips(bForm.tags,'bTag')}<button class="chip" data-act="newTag" data-ctx="b">+ Etiqueta</button></div>
+    <details><summary class="link">Más opciones (urgencia, tipo, fecha)</summary><div class="stack" style="margin-top:8px">
+    <div class="row"><select id="bLvl" class="grow">${Object.entries(LEVELS).map(([k,v])=>`<option value="${k}" ${k===bForm.l?'selected':''}>${v.name}</option>`).join('')}</select></div>
+    <div class="row"><select id="bTipo" class="grow">${Object.entries(TIPOS).map(([k,v])=>`<option value="${k}" ${k===bForm.t?'selected':''}>${v}</option>`).join('')}</select>
+      <input id="bDue" type="date" class="grow" title="Fecha (opcional)"></div></div></details>
   </div>
   <div class="scroller" style="margin-top:14px">${Object.keys(F).map(k=>`<button class="chip ${bancoF===k?'on':''}" ${k==='miss'?'style="--cc:var(--bad)"':''} data-act="bf" data-f="${k}">${names[k]} ${F[k].length}</button>`).join('')}</div>`;
   if(state.tags.length)h+=`<div class="scroller" style="margin-top:6px">${state.tags.map(g=>`<button class="chip ${bancoTag===g.id?'on':''}" style="--cc:${g.color}" data-act="btf" data-id="${g.id}"># ${esc(g.name)}</button>`).join('')}</div>`;
   const list=bancoTag?F[bancoF].filter(t=>(t.tags||[]).includes(bancoTag)):F[bancoF];
   if(!list.length){h+=`<div class="empty">${bancoF==='miss'?'Nada pendiente de días anteriores. Bien ahí.':'No hay tareas acá. Anotá arriba lo que tengas en la cabeza.'}</div>`;}
-  const groups={};list.forEach(t=>{(groups[t.blockId]=groups[t.blockId]||[]).push(t)});
-  state.blocks.concat([blockOf('')]).forEach(b=>{
+  const groups={};list.forEach(t=>{const k=(t.tags||[]).find(id=>tagOf(id))||'';(groups[k]=groups[k]||[]).push(t)});
+  state.tags.map(g=>({id:g.id,name:g.name,color:g.color,emoji:'#'})).concat([{id:'',name:'Sin etiqueta',color:'#8D96AC',emoji:'📝'}]).forEach(b=>{
     const g=groups[b.id];if(!g)return;
     g.sort((x,y)=>(LEVELS[x.nivel]||LEVELS.n).o-(LEVELS[y.nivel]||LEVELS.n).o||(y.reprog||0)-(x.reprog||0));
     h+=`<div class="grp" style="--c:${b.color}"><div class="grph"><span class="dot"></span>${b.emoji} ${esc(b.name)} <span class="cnt">${g.length}</span></div><div class="card" style="padding:4px 14px">`+
@@ -790,7 +791,7 @@ function viewBanco(){
         (t.tags||[]).map(tagOf).filter(Boolean).forEach(g=>meta.push(`<span class="tagp" style="--tc:${g.color}">${esc(g.name)}</span>`));
         return `<div class="titem"><button class="ck" data-act="tg" data-id="${t.id}" aria-label="Marcar hecha"></button><span class="lvl" style="background:${L.c}"></span>
           <button class="body" data-act="editTask" data-id="${t.id}"><span class="tx">${esc(t.text)}</span><span class="meta">${meta.join('')}</span></button>
-          <button class="hoybtn" data-act="toHoy" data-id="${t.id}">Hoy</button></div>`}).join('')+'</div></div>';
+          <button class="ib" data-act="starTask" data-id="${t.id}" aria-label="Innegociable">${isPrin(t.id,today())?'⭐':'☆'}</button><button class="hoybtn" data-act="toHoy" data-id="${t.id}">Hoy</button></div>`}).join('')+'</div></div>';
   });
   const doneCount=state.tasks.filter(t=>t.done&&t.doneAt>=mondayOf(today())).length;
   h+=`<div class="empty" style="text-align:center">Esta semana completaste ${doneCount} tarea${doneCount===1?'':'s'}.</div>`;
@@ -849,6 +850,24 @@ function viewGastos(){
   return h;
 }
 
+/* ---------- ETIQUETAS <-> BLOQUES, INNEGOCIABLES ---------- */
+function tagMatch(t,bid){const b=state.blocks.find(x=>x.id===bid);if(!b)return false;const nm=b.name.toLowerCase();return (t.tags||[]).some(id=>{const g=tagOf(id);return id==='b_'+bid||(g&&(g.name.toLowerCase()===nm||nm.includes(g.name.toLowerCase())||g.name.toLowerCase().includes(nm)))})}
+function sugFor(bid){return banco().sort((x,y)=>(tagMatch(y,bid)?1:0)-(tagMatch(x,bid)?1:0)||(y.half?1:0)-(x.half?1:0)||(LEVELS[x.nivel]||LEVELS.n).o-(LEVELS[y.nivel]||LEVELS.n).o)}
+const pDay=()=>tab==='hoy'?view:today();
+function isPrin(id,d){d=d||pDay();return principalsOf(d).some(t=>t.id===id)}
+function starTask(id){
+  const d=pDay(),t=state.tasks.find(x=>x.id===id);if(!t)return;
+  const P=(state.principals[d]||['','','']).slice();while(P.length<3)P.push('');
+  const valid=principalsOf(d).map(x=>x.id);
+  const at=P.indexOf(id);
+  if(at>=0&&valid.includes(id)){P[at]='';state.principals[d]=P;save();toast('Ya no es innegociable');return}
+  const slot=[0,1,2].find(i=>!valid.includes(P[i]));
+  if(slot==null){toast('Ya tenés 3 innegociables. Sacá una primero.');return}
+  P[slot]=id;state.principals[d]=P;
+  if(t.status!=='plan'||t.date!==d){t.status='plan';t.date=d;if(t.boxId&&!state.boxes.some(b=>b.id===t.boxId&&b.date===d))t.boxId=''}
+  save();toast('⭐ Innegociable '+(slot+1)+'/3');
+}
+
 /* ---------- TIEMPO LIBRE, MOVER, ESTADO DE BLOQUES ---------- */
 const isFree=b=>b&&b.blockId==='libre';
 function freeBlock(){return ensureBlock('libre','Tiempo libre','🌴','#7BC59A')}
@@ -883,7 +902,7 @@ function mustHTML(){
     ${P.map(t=>`<div class="subrow"><button class="ck ${t.done?'on':''}" data-act="tg" data-id="${t.id}"></button><span>${esc(t.text)}</span></div>`).join('')}
     <button class="btn primary block" style="margin-top:8px" data-act="pickP" data-slot="${[0,1,2].find(i=>!principalsOf(today()).some(t=>t.id===(state.principals[today()]||[])[i]))??0}">Elegir la ${P.length+1}ª</button></div>`;
   return `<div class="must" style="${dn===3?'border-color:var(--ok)':''}"><div class="mh"><span>⭐ Innegociables</span><span class="mini ${dn===3?'':'amb'}" style="${dn===3?'background:var(--ok);color:#12301f':''}">${dn}/3${dn===3?' 🏆':''}</span></div>
-    ${P.map(t=>`<div class="subrow ${t.done?'done':''}"><button class="ck ${t.done?'on':''}" data-act="tg" data-id="${t.id}" aria-label="Marcar"></button><span class="grow">${esc(t.text)}</span>${t.done?'':`<button class="ib" data-act="pomoTask" data-id="${t.id}" aria-label="Pomodoro">🍅</button>`}</div>`).join('')}
+    ${P.map(t=>`<div class="subrow ${t.done?'done':''}"><button class="ck ${t.done?'on':''}" data-act="tg" data-id="${t.id}" aria-label="Marcar"></button><span class="grow">${esc(t.text)}</span>${t.done?'':`<button class="ib" data-act="goTask" data-id="${t.id}" data-b="${t.boxId||''}" aria-label="Empezar 5 4 3 2 1">🚀</button>`}</div>`).join('')}
     ${dn===3?'<div class="wsub" style="margin-top:6px">Día ganado. Todo lo demás es extra. +1% 💪</div>':''}</div>`;
 }
 function viewFree(){
@@ -968,17 +987,18 @@ function viewWork(){
   if(ts.length){
     const cur=ts.find(t=>!t.half)||ts[0],rest=ts.filter(t=>t!==cur);
     h+=`<div class="wnow"><div class="k">Ahora, una sola cosa</div><div class="row" style="margin-top:6px;align-items:flex-start"><button class="ck" style="margin-top:4px" data-act="tg" data-id="${cur.id}" aria-label="Marcar hecha"></button><div class="t grow" style="margin:0">${esc(cur.text)}${cur.half?' <span class="mini amb">½</span>':''}</div><button class="ib" data-act="editTask" data-id="${cur.id}" aria-label="Editar">✎</button></div>
-      ${(cur.subs||[]).length?`<div class="wsub" style="margin-top:6px">☑ ${cur.subs.filter(x=>x.done).length}/${cur.subs.length} · próximo paso: ${esc((cur.subs.find(x=>!x.done)||{text:'—'}).text)}</div>`:''}</div>`;
+      ${(cur.subs||[]).length?`<div class="wsub" style="margin-top:6px">☑ ${cur.subs.filter(x=>x.done).length}/${cur.subs.length} · próximo paso: ${esc((cur.subs.find(x=>!x.done)||{text:'—'}).text)}</div>`:''}
+      ${pomo&&pomo.running&&pomo.boxId===b.id?'':`<button class="go" style="margin-top:12px;padding:16px;font-size:19px" data-act="goTask" data-id="${cur.id}" data-b="${b.id}">5·4·3·2·1 ¡Empezar esta!<small>5 minutos, nada más</small></button>`}</div>`;
     if(rest.length)h+=wAll?`<ul class="tl" style="margin-top:10px">${rest.map(taskLi).join('')}</ul><button class="link" data-act="wAll">Ocultar</button>`
       :`<button class="link" style="margin-top:10px" data-act="wAll">+${rest.length} más en este bloque</button>`;
   }else{
-    const sug=banco().filter(t=>t.blockId===b.blockId).sort((x,y)=>(y.half?1:0)-(x.half?1:0)||(LEVELS[x.nivel]||LEVELS.n).o-(LEVELS[y.nivel]||LEVELS.n).o).slice(0,3);
+    const sug=sugFor(b.blockId).slice(0,3);
     h+=`<div class="wnow"><div class="k">¿Qué hacés en este bloque?</div>
       ${sug.length?`<ul class="tl" style="margin-top:6px">${sug.map(t=>`<li><span class="tx">${esc(t.text)}${t.half?' <span class="mini amb">½</span>':''}</span><button class="hoybtn" data-act="toBox" data-id="${t.id}" data-b="${b.id}">+ Esta</button></li>`).join('')}</ul>`:'<div class="wsub" style="margin-top:6px">No hay pendientes de este bloque en el banco.</div>'}
       <div class="row" style="margin-top:8px"><input id="wNew" class="grow" placeholder="Escribí una tarea"><button class="btn" data-act="wAdd" data-b="${b.id}">+</button></div></div>`;
   }
   if(pomo&&pomo.running&&pomo.boxId===b.id)h+=`<button class="go" data-act="pomoShow">🍅 Volver al foco<small>Ya estás en marcha, seguí</small></button>`;
-  else if(W.mode!=='next'||W.left<=15)h+=`<button class="go" data-act="go" data-id="${b.id}">5·4·3·2·1 ¡Arrancar!<small>Solo 5 minutos. Si después querés parar, parás.</small></button>`;
+  else if(!ts.length&&(W.mode!=='next'||W.left<=15))h+=`<button class="go" data-act="go" data-id="${b.id}">5·4·3·2·1 ¡Arrancar!<small>Solo 5 minutos. Si después querés parar, parás.</small></button>`;
   h+=`<div class="row" style="margin-top:10px"><button class="btn grow" data-act="pomoOpen" data-id="${b.id}">🍅 Pomodoro 25 min</button><button class="btn grow" data-act="moveLater" data-id="${b.id}">⏰ Más tarde</button><button class="btn" data-act="wSkip" data-id="${b.id}" aria-label="Saltar">⏭</button></div></div>`;
   const nx=boxesOf(today()).find(x=>x.start>b.start&&x.id!==b.id&&!x.skipped);
   if(nx)h+=`<div class="muted" style="font-size:14px;text-align:center;margin-bottom:12px">Después: ${blockOf(nx.blockId).emoji} ${esc(blockOf(nx.blockId).name)} a las ${hm(nx.start)}</div>`;
@@ -1031,7 +1051,7 @@ function ensureBlock(id,name,emoji,color){if(!state.blocks.some(b=>b.id===id))st
 function openDump(){
   sheet(`<h3>🧠 Vaciá la cabeza</h3><div class="muted" style="font-size:14px">Escribí todo lo que tengas dando vueltas, una cosa por renglón. Va al banco y lo ordenás después. Sacarlo de la cabeza ya baja el ruido.</div>
     <textarea id="dmp" style="min-height:190px;margin-top:12px" placeholder="Llamar a Quilmes&#10;Cambiar precio Coca&#10;Pagar la luz"></textarea>
-    <div class="lbl">Bloque (opcional)</div><div class="chips" id="dmpB"><button class="chip on" data-act="dmpB" data-id="">📝 Sin bloque</button>${state.blocks.map(b=>`<button class="chip" style="--cc:${b.color}" data-act="dmpB" data-id="${b.id}">${b.emoji} ${esc(b.name)}</button>`).join('')}</div>
+    <div class="lbl">Etiqueta (opcional)</div><div class="chips" id="dmpB"><button class="chip on" data-act="dmpB" data-id="">Sin etiqueta</button>${state.tags.map(g=>`<button class="chip" style="--cc:${g.color}" data-act="dmpB" data-id="${g.id}">${esc(g.name)}</button>`).join('')}</div>
     <div class="shfoot"><button class="btn primary" data-act="dmpSave">Mandar al banco</button></div>`);
   setTimeout(()=>{const t=$('#dmp');if(t)t.focus()},80);
 }
@@ -1217,9 +1237,9 @@ function viewStats(){
   // gastos
   h+=`<div class="sec"><h2>Gastos por día</h2><button class="link" data-act="tab" data-t="gastos">Ver detalle</button></div><div class="card">${bars(days,[{c:'#E58BA0',vals:S.map(s=>s.spent)}],Math.max(...S.map(s=>s.spent)),100)}</div>`;
   // por bloque
-  const byB={};S.forEach(s=>{}); state.tasks.filter(t=>t.done&&t.doneAt>=days[0]).forEach(t=>{byB[t.blockId]=(byB[t.blockId]||0)+1});
+  const byB={};S.forEach(s=>{}); state.tasks.filter(t=>t.done&&t.doneAt>=days[0]).forEach(t=>{const k=(t.tags||[]).find(id=>tagOf(id))||'';byB[k]=(byB[k]||0)+1});
   const bl=Object.entries(byB).sort((a,b)=>b[1]-a[1]);const bmax=Math.max(1,...bl.map(x=>x[1]));
-  h+=`<div class="sec"><h2>Hechas por bloque</h2></div><div class="card">${bl.length?bl.map(([id,n])=>{const b=blockOf(id);return `<div class="hbarrow"><span>${b.emoji} ${esc(b.name)}</span><div class="pbar"><i style="width:${n/bmax*100}%;background:${b.color}"></i></div><b>${n}</b></div>`}).join(''):'<div class="empty">Todavía no hay tareas hechas en este período.</div>'}</div>`;
+  h+=`<div class="sec"><h2>Hechas por etiqueta</h2></div><div class="card">${bl.length?bl.map(([id,n])=>{const g=tagOf(id),b=g?{emoji:'#',name:g.name,color:g.color}:{emoji:'📝',name:'Sin etiqueta',color:'#8D96AC'};return `<div class="hbarrow"><span>${b.emoji} ${esc(b.name)}</span><div class="pbar"><i style="width:${n/bmax*100}%;background:${b.color}"></i></div><b>${n}</b></div>`}).join(''):'<div class="empty">Todavía no hay tareas hechas en este período.</div>'}</div>`;
   // mejor día de la semana (todo el historial)
   const wd=[0,0,0,0,0,0,0],wc=[0,0,0,0,0,0,0];for(let i=0;i<56;i++){const d=addDays(today(),-i);const s=dayStats(d);if(s.done||s.missed){wd[dow(d)-1]+=s.done;wc[dow(d)-1]++}}
   const wavg=wd.map((v,i)=>wc[i]?v/wc[i]:0);const wmax=Math.max(...wavg);
@@ -1295,22 +1315,24 @@ function renderBoxSheet(){
   const PR=(state.principals[b.date]||[]).filter(Boolean);
   const free=state.tasks.filter(t=>!t.done&&!d.ids.includes(t.id)&&(t.status==='banco'||(t.status==='plan'&&t.date===b.date&&!t.boxId)));
   const prin=free.filter(t=>PR.includes(t.id)), today0=free.filter(t=>t.status==='plan'&&!PR.includes(t.id));
-  const pool=free.filter(t=>t.status==='banco'&&(d.all||t.blockId===b.blockId)).sort((x,y)=>(y.half?1:0)-(x.half?1:0)||(LEVELS[x.nivel]||LEVELS.n).o-(LEVELS[y.nivel]||LEVELS.n).o);
-  const pk=t=>`<li><span class="tx">${blockOf(t.blockId).emoji} ${esc(t.text)}${t.half?' <span class="mini amb">½</span>':''}</span><button class="hoybtn" data-act="dPick" data-id="${t.id}">+ Sumar</button></li>`;
+  const pool=free.filter(t=>t.status==='banco').sort((x,y)=>(tagMatch(y,b.blockId)?1:0)-(tagMatch(x,b.blockId)?1:0)||(y.half?1:0)-(x.half?1:0)||(LEVELS[x.nivel]||LEVELS.n).o-(LEVELS[y.nivel]||LEVELS.n).o);
+  const pk=t=>`<li><span class="tx">${esc(t.text)}${t.half?' <span class="mini amb">½</span>':''}</span><button class="hoybtn" data-act="dPick" data-id="${t.id}">+ Sumar</button></li>`;
   sheet(`<h3>${d.isNew?'Nueva caja':'Editar caja'}</h3><div class="muted" style="font-size:14px">${hm(b.start)} a ${b.start+b.dur>=1440?'00:00':hm(b.start+b.dur)}</div>
     <div class="lbl">Bloque</div><div class="chips">${state.blocks.map(x=>`<button class="chip ${x.id===b.blockId?'on':''}" style="--cc:${x.color}" data-act="dBlock" data-id="${x.id}">${x.emoji} ${esc(x.name)}</button>`).join('')}</div>
     <div class="row" style="margin-top:14px"><label style="flex:0 0 34%"><div class="lbl" style="margin-top:0">Empieza</div><select data-f="start">${opts}</select></label>
-      <label class="grow"><div class="lbl" style="margin-top:0">Nombre (opcional)</div><input data-f="title" value="${esc(b.title)}" placeholder="${esc(bl.name)}"></label></div>
+</div>
     <div class="lbl">Duración</div><div class="chips">${[30,45,60,90,120,180,240].map(m=>`<button class="chip ${b.dur===m?'on':''}" data-act="dDur" data-m="${m}">${fmtDur(m)}</button>`).join('')}</div>
-    <div class="lbl">Aviso</div><div class="chips">${AVISOS.map(([m,l])=>`<button class="chip ${avisoOf(b)===m?'on':''}" data-act="dAviso" data-m="${m}">${l}</button>`).join('')}</div>
+    <details style="margin-top:12px"><summary class="link">Más opciones (nombre, aviso)</summary>
+      <div class="lbl">Nombre (opcional)</div><input data-f="title" value="${esc(b.title)}" placeholder="${esc(bl.name)}">
+      <div class="lbl">Aviso</div><div class="chips">${AVISOS.map(([m,l])=>`<button class="chip ${avisoOf(b)===m?'on':''}" data-act="dAviso" data-m="${m}">${l}</button>`).join('')}</div></details>
     <div class="lbl">Tareas en esta caja</div>
     ${inBox.length||d.news.length?'<ul class="tl">'+inBox.map(t=>`<li><span class="tx">${esc(t.text)}</span><button class="x" data-act="dRem" data-id="${t.id}" aria-label="Sacar">✕</button></li>`).join('')+d.news.map((t,i)=>`<li><span class="tx">${esc(t)}</span><button class="x" data-act="dRemN" data-i="${i}" aria-label="Sacar">✕</button></li>`).join('')+'</ul>':'<div class="muted" style="font-size:14px">Todavía ninguna. Sumá del banco o escribí una nueva.</div>'}
     <div class="row" style="margin-top:8px"><input id="dNew" class="grow" placeholder="Nueva tarea para esta caja"><button class="btn" data-act="dAdd">Sumar</button></div>
     ${prin.length?`<div class="lbl">⭐ Tus 3 principales de hoy</div><ul class="tl">${prin.map(pk).join('')}</ul>`:''}
     ${today0.length?`<div class="lbl">Para hoy, sin horario</div><ul class="tl">${today0.map(pk).join('')}</ul>`:''}
-    <div class="lbl">${d.all?'Todo el banco':'Pendientes de '+esc(bl.name)+' en el banco'}</div>
-    ${pool.length?'<ul class="tl">'+pool.map(t=>`<li><span class="lvl" style="background:${(LEVELS[t.nivel]||LEVELS.n).c}"></span><span class="tx">${d.all?blockOf(t.blockId).emoji+' ':''}${esc(t.text)}${t.missed?' <span style="color:var(--bad);font-size:12px">no se hizo</span>':''}</span><button class="hoybtn" data-act="dPick" data-id="${t.id}">+ Sumar</button></li>`).join('')+'</ul>':'<div class="muted" style="font-size:14px">No hay pendientes de este bloque.</div>'}
-    <button class="link" style="margin-top:8px" data-act="dAll">${d.all?'Ver solo este bloque':'Ver todo el banco'}</button>
+    <div class="lbl">Del banco (${pool.length})</div>
+    ${pool.length?'<ul class="tl">'+(d.all?pool:pool.slice(0,6)).map(t=>`<li><span class="lvl" style="background:${(LEVELS[t.nivel]||LEVELS.n).c}"></span><span class="tx">${esc(t.text)}${t.missed?' <span style="color:var(--bad);font-size:12px">no se hizo</span>':''}</span><button class="hoybtn" data-act="dPick" data-id="${t.id}">+ Sumar</button></li>`).join('')+'</ul>':'<div class="muted" style="font-size:14px">No hay pendientes de este bloque.</div>'}
+    ${pool.length>6?`<button class="link" style="margin-top:8px" data-act="dAll">${d.all?'Ver menos':'Ver todo el banco ('+pool.length+')'}</button>`:''}
     ${d.isNew||isFree(b)?'':'<button class="btn block" style="margin-top:14px" data-act="moveLater" data-id="'+b.id+'">⏰ Pasar este bloque más tarde</button>'}
     <div class="shfoot">${d.isNew?'<button class="btn" data-act="closeSheet">Cancelar</button>':'<button class="btn danger" data-act="dDel">Borrar</button>'}<button class="btn primary" data-act="dSave">Guardar caja</button></div>`);
 }
@@ -1333,14 +1355,16 @@ function openTask(id){
   subDraft=(t.subs||[]).map(x=>({...x}));
   sheet(`<h3>Editar tarea</h3>
     <div class="lbl">Tarea</div><input id="eTxt" value="${esc(t.text)}">
-    <div class="lbl">Bloque</div><select id="eBlk">${blockOpts(t.blockId)}</select>
-    <div class="row" style="margin-top:0"><label class="grow"><div class="lbl">Tipo</div><select id="eTipo">${Object.entries(TIPOS).map(([k,v])=>`<option value="${k}" ${k===t.tipo?'selected':''}>${v}</option>`).join('')}</select></label>
-      <label class="grow"><div class="lbl">Fecha</div><input id="eDue" type="date" value="${t.due||''}"></label></div>
+    <button class="btn block" style="margin-top:12px;${isPrin(t.id)?'background:var(--amber);color:#1a1405':''}" data-act="starTask" data-id="${t.id}">${isPrin(t.id)?'⭐ Es innegociable (tocá para sacar)':'☆ Hacer innegociable'}</button>
     <div class="lbl">Subtareas</div><div id="eSubs"></div>
     <div class="row" style="margin-top:6px"><input id="eSubNew" class="grow" placeholder="Agregar subtarea (ej: Quilmes)"><button class="btn" data-act="sdAdd">+</button></div>
     <div class="lbl">Etiquetas</div><div class="chips" id="eTags">${tagChips(t.tags||[],'eTag')}<button class="chip" data-act="newTag" data-ctx="e">+ Etiqueta</button></div>
+    <details style="margin-top:14px"><summary class="link">Más opciones (fecha, alarma, urgencia)</summary>
+    <div class="row" style="margin-top:0"><label class="grow"><div class="lbl">Tipo</div><select id="eTipo">${Object.entries(TIPOS).map(([k,v])=>`<option value="${k}" ${k===t.tipo?'selected':''}>${v}</option>`).join('')}</select></label>
+      <label class="grow"><div class="lbl">Fecha</div><input id="eDue" type="date" value="${t.due||''}"></label></div>
     <div class="lbl">Alarma <span class="muted">(opcional, el día que la tengas planificada)</span></div><div class="row"><input id="eAlarm" type="time" class="grow" value="${t.alarm||''}"><button class="btn" data-act="eAlarmClr">Sin alarma</button></div>
     <div class="lbl">Nivel</div><div class="chips" id="eLvl">${Object.entries(LEVELS).map(([k,v])=>`<button class="chip ${k===(t.nivel||'n')?'on':''}" style="--cc:${v.c}" data-act="eLvl" data-k="${k}">${v.name}</button>`).join('')}</div>
+    </details>
     ${t.reprog?`<div class="muted" style="font-size:13px;margin-top:12px">La pateaste ${t.reprog} ${t.reprog===1?'vez':'veces'}. ${t.reprog>=3?'Partila en algo más chico o borrala.':''}</div>`:''}
     <div class="row" style="margin-top:16px"><button class="btn grow" data-act="eDup" data-id="${t.id}">⧉ Hacer una copia</button></div>
     <div class="row" style="margin-top:8px">${t.done?'':`<button class="btn grow" style="color:var(--amber)" data-act="pomoTask" data-id="${t.id}">🍅 Pomodoro${t.pomos?' ('+t.pomos+')':''}</button>`}${t.status==='plan'?`<button class="btn grow" data-act="toBanco" data-id="${t.id}">↩ Mandar al banco</button>`:`<button class="btn grow" data-act="toHoy" data-id="${t.id}">→ Pasar a hoy</button>`}</div>
@@ -1352,7 +1376,7 @@ function openPick(slot){
   const P=state.principals[view]||['','',''];
   const planned=state.tasks.filter(t=>t.status==='plan'&&t.date===view&&!t.done&&!P.includes(t.id));
   const bk=banco().filter(t=>!P.includes(t.id)).sort((x,y)=>(LEVELS[x.nivel]||LEVELS.n).o-(LEVELS[y.nivel]||LEVELS.n).o);
-  const row=t=>`<li><span class="lvl" style="background:${(LEVELS[t.nivel]||LEVELS.n).c}"></span><span class="tx">${blockOf(t.blockId).emoji} ${esc(t.text)}</span><button class="hoybtn" data-act="setP" data-slot="${slot}" data-id="${t.id}">Elegir</button></li>`;
+  const row=t=>`<li><span class="lvl" style="background:${(LEVELS[t.nivel]||LEVELS.n).c}"></span><span class="tx">${esc(t.text)}</span><button class="hoybtn" data-act="setP" data-slot="${slot}" data-id="${t.id}">Elegir</button></li>`;
   sheet(`<h3>Tarea principal ${+slot+1}</h3><div class="muted" style="font-size:14px">Lo que más mueve la aguja hoy.</div>
     <div class="row" style="margin-top:12px"><input id="pNew" class="grow" placeholder="Escribir una nueva"><button class="btn primary" data-act="setPnew" data-slot="${slot}">Elegir</button></div>
     ${planned.length?'<div class="lbl">Ya planificadas para este día</div><ul class="tl">'+planned.map(row).join('')+'</ul>':''}
@@ -1364,7 +1388,7 @@ function openSettings(){
   const perm=('Notification' in window)?Notification.permission:'no';
   curSheet=openSettings;
   sheet(`<h3>Configuración</h3><div class="muted" style="font-size:14px">Todo se puede editar: nombres, emojis y colores. Versión ${APP_VERSION}</div>
-    <div class="lbl">Bloques de tareas</div><div class="muted" style="font-size:13px;margin-bottom:8px">Agrupá lo que hacés en el mismo lugar o con la misma herramienta.</div>
+    <div class="lbl">Tipos de bloque del día</div><div class="muted" style="font-size:13px;margin-bottom:8px">Los usás en tu plantilla (Negocio, Proyectar, Entreno…). Para clasificar tareas usá Etiquetas.</div>
     <div id="sBlocks">${state.blocks.map(b=>`<div class="srow2" data-bid="${b.id}"><button class="ib" style="width:44px;height:40px;font-size:20px" data-act="emoBlk" data-id="${b.id}" aria-label="Cambiar ícono">${b.emoji}</button><input type="hidden" value="${esc(b.emoji)}" data-k="emoji"><input value="${esc(b.name)}" data-k="name" aria-label="Nombre"><input type="color" value="${b.color}" data-k="color" style="padding:2px;height:40px" aria-label="Color"><button class="x" data-act="sDelBlock" data-id="${b.id}" aria-label="Borrar bloque">✕</button></div>`).join('')}</div>
     <button class="link" data-act="sAddBlock">+ Agregar bloque</button>
     <div class="lbl" style="margin-top:22px">Etiquetas</div><div class="muted" style="font-size:13px;margin-bottom:8px">Para marcar tareas sueltas o de cualquier bloque.</div>
@@ -1382,7 +1406,7 @@ function openSettings(){
     <div class="lbl">Categorías de gasto <span class="muted">(presupuesto mensual opcional)</span></div>
     ${gCatRows()}
     <button class="link" data-act="gsAdd">+ Agregar categoría</button>
-    <div class="lbl" style="margin-top:22px">Pomodoro (minutos)</div>
+    <div class="lbl" style="margin-top:22px">Pomodoro: foco / descanso</div><div class="chips" style="margin:8px 0">${[[25,5,15],[30,10,20],[50,10,30],[15,3,10]].map(([f,c,l])=>`<button class="chip ${(state.settings.pFoco||25)===f&&(state.settings.pCorto||5)===c?'on':''}" data-act="pPreset" data-f="${f}" data-c="${c}" data-l="${l}">${f} / ${c}</button>`).join('')}</div>
     <div class="row"><label class="grow"><div class="muted" style="font-size:12px">Foco</div><input id="sPF" type="number" min="5" max="90" value="${state.settings.pFoco||25}"></label>
       <label class="grow"><div class="muted" style="font-size:12px">Descanso</div><input id="sPC" type="number" min="1" max="30" value="${state.settings.pCorto||5}"></label>
       <label class="grow"><div class="muted" style="font-size:12px">Largo (cada 4)</div><input id="sPL" type="number" min="5" max="60" value="${state.settings.pLargo||15}"></label></div>
@@ -1519,7 +1543,8 @@ function pomoQueue(){
   pomo.cur=cur.id;const rest=ts.filter(t=>t!==cur);
   const sb=(cur.subs||[]).length?`<div class="fqn">☑ ${cur.subs.filter(x=>x.done).length}/${cur.subs.length} pasos · próximo: ${esc((cur.subs.find(x=>!x.done)||{text:'—'}).text)}</div>`:'';
   return `<div class="fq"><div class="fqk">Ahora, una sola cosa</div><div class="fqt">${esc(cur.text)}${cur.half?' <span class="mini amb">½</span>':''}</div>${sb}
-    <div class="row" style="margin-top:12px"><button class="btn grow" style="background:var(--ok);color:#12301f" data-act="fqDone">✔ Hecha</button><button class="btn grow" data-act="fqHalf">½ A medias</button></div>
+    <button class="btn block" style="margin-top:10px;color:var(--amber)" data-act="fqGo">🚀 5·4·3·2·1 arrancar esta</button>
+    <div class="row" style="margin-top:8px"><button class="btn grow" style="background:var(--ok);color:#12301f" data-act="fqDone">✔ Hecha</button><button class="btn grow" data-act="fqHalf">½ A medias</button></div>
     ${rest.length?`<div class="fqn">Después: ${rest.slice(0,3).map(t=>esc(t.text)).join(' · ')}</div>`:''}</div>`;
 }
 function pomoRender(){
@@ -1537,6 +1562,7 @@ function pomoRender(){
     <div class="pdots">${[0,1,2,3].map(i=>`<i class="${i<(pomo.count%4||(pomo.count&&pomo.phase==='largo'?4:0))?'on':''}"></i>`).join('')}</div>
     <div class="pctl"><button class="btn primary" data-act="pomoGo">${pomo.running?'⏸ Pausa':(pomo.left<pomo.total?'▶ Seguir':'▶ Empezar '+PN[pomo.phase].toLowerCase())}</button><button class="btn" data-act="pomoSkip">⏭ Saltar</button></div>
     ${pomo.taskId&&!pomo.boxId?(()=>{const tk=state.tasks.find(x=>x.id===pomo.taskId);return tk?(tk.done?'<div class="pnote" style="color:var(--ok)">✔ Tarea hecha</div>':'<button class="btn block" style="margin-top:10px" data-act="pomoDone">✔ Terminé la tarea</button>'):''})():''}
+    <div class="pnote" style="margin-bottom:6px">Foco / descanso:</div><div style="display:flex;justify-content:center"><div class="chips" style="margin:8px 0">${[[25,5,15],[30,10,20],[50,10,30],[15,3,10]].map(([f,c,l])=>`<button class="chip ${(state.settings.pFoco||25)===f&&(state.settings.pCorto||5)===c?'on':''}" data-act="pPreset" data-f="${f}" data-c="${c}" data-l="${l}">${f} / ${c}</button>`).join('')}</div></div>
     <div class="pnote">${pomo.count} pomodoro${pomo.count===1?'':'s'} en esta sesión.<br>Si el celu se bloquea, el tiempo sigue contando y al desbloquear te avisa. Con la pantalla encendida suena en el momento.</div>`;
 }
 function pomoPill(){const p=$('#pomoPill');const show=pomo&&!$('#pomo').classList.contains('open');p.classList.toggle('show',!!show);if(show)p.textContent='🍅 '+pad(Math.floor(pomoLeft()/60))+':'+pad(pomoLeft()%60)}
@@ -1587,6 +1613,14 @@ const A={
   dAviso:el=>{const m=+el.dataset.m;draft.b.avisoMin=m;draft.b.aviso=m>=0;renderBoxSheet()},
   eAlarmClr:()=>{$('#eAlarm').value=''},
   pomoOpen:el=>pomoOpen(el.dataset.id),
+  pPreset:el=>{const inS=!!$('#sPF');if(inS)readSettings();state.settings.pFoco=+el.dataset.f;state.settings.pCorto=+el.dataset.c;state.settings.pLargo=+el.dataset.l;save();
+    if(pomo&&!pomo.running&&!pomo.starter&&pomo.left===pomo.total){pomo.total=pomo.left=PD()[pomo.phase]*60;pomoStore()}
+    if($('#pomo').classList.contains('open'))pomoRender();if(inS)openSettings();toast('Pomodoro: '+el.dataset.f+' min de foco, '+el.dataset.c+' de descanso')},
+  starTask:el=>{const id=el.dataset.id;starTask(id);if($('#sheet').classList.contains('open')&&$('#eTxt'))openTask(id);else render()},
+  goTask:el=>{const id=el.dataset.id,bid=el.dataset.b||'';
+    countdown(()=>{const b=bid&&state.boxes.find(x=>x.id===bid);if(b){b.started=true;save()}
+      if(pomo&&pomo.running)pomoPause();pomo=null;pomoOpen('',id);if(!pomo)return;pomo.cur=id;pomo.starter=true;pomo.phase='foco';pomo.total=pomo.left=5*60;pomoStore();pomoStart();render()})},
+  fqGo:()=>{const id=pomo&&pomo.cur;countdown(()=>{if(!pomo)return;if(pomo.running)pomoPause();pomo.cur=id;pomo.starter=true;pomo.phase='foco';pomo.total=pomo.left=5*60;pomoStore();pomoStart();pomoShow()})},
   frChip:el=>{$('#frT').value=el.dataset.t},
   frAdd:()=>{const t=$('#frT').value.trim()||'Tiempo libre',st=+$('#frS').value,du=+$('#frD').value;
     if(st+du>1440){toast('Se pasa de las 00:00');return}
@@ -1636,7 +1670,7 @@ const A={
   dump:()=>openDump(),
   dmpB:el=>{document.querySelectorAll('#dmpB .chip').forEach(c=>c.classList.toggle('on',c===el))},
   dmpSave:()=>{const ls=$('#dmp').value.split('\n').map(x=>x.replace(/^[-•*\s]+/,'').trim()).filter(Boolean);if(!ls.length){closeSheet();return}
-    const b=(document.querySelector('#dmpB .chip.on')||{dataset:{id:''}}).dataset.id;ls.forEach(text=>state.tasks.push(newTask({text,blockId:b})));save();closeSheet();render();toast(ls.length+' al banco. Cabeza más liviana 🧠')},
+    const b=(document.querySelector('#dmpB .chip.on')||{dataset:{id:''}}).dataset.id;ls.forEach(text=>state.tasks.push(newTask({text,tags:b?[b]:[]})));save();closeSheet();render();toast(ls.length+' al banco. Cabeza más liviana 🧠')},
   subTog:el=>{const id=el.dataset.id;openSubs.has(id)?openSubs.delete(id):openSubs.add(id);if($('#sheet').classList.contains('open')&&calRef)openCal();else render()},
   subTg:el=>{const t=state.tasks.find(x=>x.id===el.dataset.id);if(!t)return;const x=t.subs.find(y=>y.id===el.dataset.s);if(!x)return;x.done=!x.done;
     if(t.subs.every(y=>y.done)&&!t.done){t.done=true;t.doneAt=t.date||today();t.missed=false;toast('Todas las subtareas listas: tarea hecha 👏')}
@@ -1701,7 +1735,7 @@ const A={
     state.expenses.push({id:uid(),date:el.dataset.d,amount:v,cat:$('#qCat').value,detail:$('#qDet').value.trim(),ts:String(Date.now())});save();render();toast('Gasto anotado: '+money(v))},
   score:el=>{const k=el.dataset.k,v=+el.dataset.v;const s=state.scores[view]||{};s[k]=s[k]===v?0:v;state.scores[view]=s;save();render()},
   addBanco:()=>{const v=$('#bTxt').value.trim();if(!v){toast('Escribí la tarea');$('#bTxt').focus();return}
-    bForm.b=$('#bBlk').value==='__new'?'':$('#bBlk').value;bForm.l=$('#bLvl').value;bForm.t=$('#bTipo').value;
+    bForm.b='';bForm.l=$('#bLvl').value;bForm.t=$('#bTipo').value;
     const d=$('#bDue').value||'';
     state.tasks.push(newTask({text:v,blockId:bForm.b,tipo:bForm.t,nivel:bForm.l,due:d,tags:bForm.tags.slice()}));
     bForm.tags=[];
@@ -1718,7 +1752,7 @@ const A={
   bf:el=>{bancoF=el.dataset.f;render()},
   editTask:el=>openTask(el.dataset.id),
   eLvl:el=>{document.querySelectorAll('#eLvl .chip').forEach(c=>c.classList.toggle('on',c===el));$('#sheet').dataset.lvl=el.dataset.k},
-  eSave:el=>{const t=state.tasks.find(x=>x.id===el.dataset.id);if(!t)return;t.text=$('#eTxt').value.trim()||t.text;t.blockId=$('#eBlk').value==='__new'?'':$('#eBlk').value;t.tags=[...document.querySelectorAll('#eTags .chip.on[data-id]')].map(c=>c.dataset.id);t.alarm=$('#eAlarm').value||'';{const nv=$('#eSubNew');if(nv&&nv.value.trim())subDraft.push({id:uid(),text:nv.value.trim(),done:false})}t.subs=subDraft.map(x=>({...x}));t.tipo=$('#eTipo').value;t.due=$('#eDue').value||'';t.nivel=$('#sheet').dataset.lvl||'n';
+  eSave:el=>{const t=state.tasks.find(x=>x.id===el.dataset.id);if(!t)return;t.text=$('#eTxt').value.trim()||t.text;t.tags=[...document.querySelectorAll('#eTags .chip.on[data-id]')].map(c=>c.dataset.id);t.alarm=$('#eAlarm').value||'';{const nv=$('#eSubNew');if(nv&&nv.value.trim())subDraft.push({id:uid(),text:nv.value.trim(),done:false})}t.subs=subDraft.map(x=>({...x}));t.tipo=$('#eTipo').value;t.due=$('#eDue').value||'';t.nivel=$('#sheet').dataset.lvl||'n';
     if(t.due&&t.due>=today()&&t.missed&&t.missedFrom!==t.due)t.missed=false;
     save();closeSheet();render()},
   eDel:el=>{if(!confirm('¿Borrar esta tarea?'))return;state.tasks=state.tasks.filter(x=>x.id!==el.dataset.id);save();closeSheet();render()},
