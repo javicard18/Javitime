@@ -475,7 +475,7 @@ function spawnNext(t,minDate){if(!t.rep||t.spawned)return;let d=nextDue(t.due||t
   state.tasks.push(newTask({text:t.text,tags:(t.tags||[]).slice(),nivel:t.nivel,tipo:'dia',rep:t.rep,due:d,subs:(t.subs||[]).map(x=>({...x,id:uid(),done:false}))}))}
 const AREAS={j:{name:'Negocio Javicard',short:'Negocio',c:'#5AB0E8'},d:{name:'Tareas domésticas',short:'Casa',c:'#B9B2A3'},e:{name:'Estudios',short:'Estudios',c:'#B79CF0'},c:{name:'Físico',short:'Físico',c:'#FF8A65'}};
 const AK=Object.keys(AREAS), AMAX=AK.length*5;
-const APP_VERSION='29 oct 2026 · v17';
+const APP_VERSION='29 oct 2026 · v18';
 const HORIZ={mes:'Este mes',tri:'Trimestre',ano:'Este año'};
 
 /* ---------- estado ---------- */
@@ -695,7 +695,7 @@ function heroHTML(){
       ${(()=>{if(ts.some(t=>!t.done))return '';const sug=sugFor(cur.blockId).slice(0,3);
         return sug.length?`<div class="lbl" style="margin-top:6px">Del banco para este bloque</div><ul class="tl">${sug.map(t=>`<li><span class="tx">${esc(t.text)}${t.half?' <span class="mini amb">½ a medias</span>':''}</span><button class="hoybtn" data-act="toBox" data-id="${t.id}" data-b="${cur.id}">+ Hacer</button></li>`).join('')}</ul>`
           :'<div class="hnext" style="margin-top:6px">Sin tareas: tocá el bloque abajo y sumá una, o arrancá igual con lo primero que se te ocurra.</div>'})()}
-      <div class="row" style="margin:12px 0 10px"><button class="btn primary grow" data-act="starter" data-id="${cur.id}">🚀 Arrancar: solo 5 min</button><button class="btn" data-act="pomoOpen" data-id="${cur.id}" aria-label="Pomodoro">🍅${cur.pomos?' '+cur.pomos:''}</button></div>
+      <div class="row" style="margin:12px 0 10px"><button class="btn primary grow" data-act="go" data-id="${cur.id}">🚀 5·4·3·2·1 Arrancar</button><button class="btn" data-act="pomoOpen" data-id="${cur.id}" aria-label="Pomodoro">🍅${cur.pomos?' '+cur.pomos:''}</button></div>
       <div class="hnext">${next?'Después: '+blockOf(next.blockId).emoji+' '+esc(next.title||blockOf(next.blockId).name)+' a las '+hm(next.start):'Es tu última caja del día.'}</div></div>`;
   }
   if(n<DAY_START){
@@ -1028,7 +1028,7 @@ function workState(){
   const nx=bx.find(b=>b.start>n&&!b.skipped);if(nx)return {b:nx,mode:'next',left:nx.start-n};
   return {mode:'none'};
 }
-const TIPS=['No hace falta tener ganas. Hace falta empezar.','Hacé la versión fea primero. Después la mejorás.','Una sola cosa. Lo demás puede esperar.','Si te trabás, achicá la tarea hasta que sea ridícula.','El celu boca abajo y lejos por 25 minutos.','Los primeros 5 minutos son los más difíciles. Después fluye.','No es todo o nada: 10 minutos también suman.','Tu cabeza busca excusas en 5 segundos. Ganale: 5·4·3·2·1.','Hecho es mejor que perfecto.','Terminá a medias antes que no empezar.','Respirá, tomá agua y arrancá.','Un bloque a la vez. Ahora, solo este.'];
+const TIPS=['No hace falta tener ganas. Hace falta empezar.','Hacé la versión fea primero. Después la mejorás.','Una sola cosa. Lo demás puede esperar.','Si te trabás, achicá la tarea hasta que sea ridícula.','El celu boca abajo y lejos por 25 minutos.','Lo más difícil es empezar. Después fluye.','No es todo o nada: 10 minutos también suman.','Tu cabeza busca excusas en 5 segundos. Ganale: 5·4·3·2·1.','Hecho es mejor que perfecto.','Terminá a medias antes que no empezar.','Respirá, tomá agua y arrancá.','Un bloque a la vez. Ahora, solo este.'];
 const tip=()=>TIPS[Math.floor(Date.now()/600000)%TIPS.length];
 const bigQuote=()=>quoteHTML().replace('class="quote"','class="quote big"');
 function wActs(b,extra){return `<div class="wacts">${b?`<button data-act="wSkip" data-id="${b.id}">⏭<span>Saltar</span></button>${isLocked(b)?`<button data-act="lockInfo" data-id="${b.id}">🔒<span>Fijo</span></button>`:`<button data-act="mvOpen" data-id="${b.id}">⏰<span>Mover</span></button>`}`:''}<button data-act="frNow">🌴<span>Libre ahora</span></button>${extra||''}</div>`}
@@ -1038,7 +1038,7 @@ function viewWork(){
     const bx=boxesOf(today()).filter(x=>!isFree(x));
     h+=`<div class="wcard" style="--c:var(--amber)"><div class="wk">Sin bloque ahora</div>
       <div class="wbig"><span class="wemo">${bx.length?'🏁':'🧱'}</span><div><div class="wname">${bx.length?'Terminaste tus bloques':'Hoy no tenés bloques'}</div><div class="wsub">${bx.length?'Puntuá el día en Planificar y descansá.':'Armá tu plantilla y cada día se arma solo.'}</div></div></div>
-      <button class="go" data-act="go" data-id="">5·4·3·2·1 Arrancar algo<small>5 minutos de foco libre</small></button>
+      <button class="go" data-act="go" data-id="">5·4·3·2·1 Arrancar algo<small>Pomodoro de ${PD().foco} min</small></button>
       ${bx.length?wActs(null):'<button class="btn block" style="margin-top:10px" data-act="plan">🧱 Armar mi plantilla</button>'}</div>`;
     return h+bigQuote();
   }
@@ -1070,7 +1070,7 @@ function viewWork(){
     ${cur?`<div class="wone"><button class="ckb" data-act="tg" data-id="${cur.id}" aria-label="Marcar hecha"></button><button class="wtt" data-act="bTasks" data-id="${b.id}"><span class="k">Una sola cosa</span><span>${esc(cur.text)}</span>${(cur.subs||[]).length?` <span class="mini">☑ ${cur.subs.filter(x=>x.done).length}/${cur.subs.length}</span>`:''}</button></div>`
       :`<button class="wone empty" data-act="bTasks" data-id="${b.id}">${all.length?'🎉 Bloque completo · sumar algo más':'＋ Elegí qué hacer en este bloque'}</button>`}
     ${running?`<button class="go" data-act="pomoShow">🍅 Volver al foco<small>Ya estás en marcha, seguí</small></button>`
-      :`<button class="go" data-act="${cur?'goTask':'go'}" data-id="${cur?cur.id:b.id}" data-b="${b.id}">5·4·3·2·1 ¡${W.mode==='next'?'Arrancar ya':'Arrancar'}!<small>Solo 5 minutos. Después ves.</small></button>`}
+      :`<button class="go" data-act="${cur?'goTask':'go'}" data-id="${cur?cur.id:b.id}" data-b="${b.id}">5·4·3·2·1 ¡${W.mode==='next'?'Arrancar ya':'Arrancar'}!<small>Arranca tu pomodoro de ${PD().foco} min</small></button>`}
     <div class="wtip">“${tip()}”</div>
     ${wActs(b,all.length?`<button data-act="bTasks" data-id="${b.id}">📋<span>${dn}/${all.length}</span></button>`:'')}</div>`;
   return h+after+bigQuote();
@@ -1723,7 +1723,7 @@ function pomoQueue(){
   pomo.cur=cur.id;const rest=ts.filter(t=>t!==cur);
   const sb=(cur.subs||[]).length?`<div class="fqn">☑ ${cur.subs.filter(x=>x.done).length}/${cur.subs.length} pasos · próximo: ${esc((cur.subs.find(x=>!x.done)||{text:'—'}).text)}</div>`:'';
   return `<div class="fq"><div class="fqk">Ahora, una sola cosa</div><div class="fqt">${esc(cur.text)}${cur.half?' <span class="mini amb">½</span>':''}</div>${sb}
-    <button class="btn block" style="margin-top:10px;color:var(--amber)" data-act="fqGo">🚀 5·4·3·2·1 arrancar esta</button>
+    ${pomo.running&&pomo.phase==='foco'?'':'<button class="btn block" style="margin-top:10px;color:var(--amber)" data-act="fqGo">🚀 5·4·3·2·1 arrancar esta</button>'}
     <div class="row" style="margin-top:8px"><button class="btn grow" style="background:var(--ok);color:#12301f" data-act="fqDone">✔ Hecha</button><button class="btn grow" data-act="fqHalf">½ A medias</button></div>
     ${rest.length?`<div class="fqn">Después: ${rest.slice(0,3).map(t=>esc(t.text)).join(' · ')}</div>`:''}</div>`;
 }
@@ -1830,8 +1830,8 @@ const A={
   starTask:el=>{const id=el.dataset.id;starTask(id);if($('#sheet').classList.contains('open')&&$('#eTxt'))openTask(id);else render()},
   goTask:el=>{const id=el.dataset.id,bid=el.dataset.b||'';
     countdown(()=>{const b=bid&&state.boxes.find(x=>x.id===bid);if(b){b.started=true;save()}
-      if(pomo&&pomo.running)pomoPause();pomo=null;pomoOpen('',id);if(!pomo)return;pomo.cur=id;pomo.starter=true;pomo.phase='foco';pomo.total=pomo.left=5*60;pomoStore();pomoStart();render()})},
-  fqGo:()=>{const id=pomo&&pomo.cur;countdown(()=>{if(!pomo)return;if(pomo.running)pomoPause();pomo.cur=id;pomo.starter=true;pomo.phase='foco';pomo.total=pomo.left=5*60;pomoStore();pomoStart();pomoShow()})},
+      if(pomo&&pomo.running)pomoPause();pomo=null;pomoOpen('',id);if(!pomo)return;pomo.cur=id;pomo.starter=false;pomo.phase='foco';pomo.total=pomo.left=PD().foco*60;pomoStore();pomoStart();render()})},
+  fqGo:()=>{const id=pomo&&pomo.cur;countdown(()=>{if(!pomo)return;pomo.cur=id;if(pomo.running&&pomo.phase==='foco'){pomoStore();pomoShow();return}if(pomo.running)pomoPause();pomo.starter=false;pomo.phase='foco';pomo.total=pomo.left=PD().foco*60;pomoStore();pomoStart();pomoShow()})},
   frChip:el=>{$('#frT').value=el.dataset.t},
   frAdd:()=>{const t=$('#frT').value.trim()||'Tiempo libre',st=+$('#frS').value,du=+$('#frD').value;
     if(st+du>1440){toast('Se pasa de las 00:00');return}
@@ -1855,7 +1855,7 @@ const A={
   go:el=>{const id=el.dataset.id,late=el.dataset.late==='1';
     countdown(()=>{const b=id&&state.boxes.find(x=>x.id===id);if(b){b.started=true;if(late){b.late=nowMin();restoreSwept(b)}save()}
       if(pomo&&pomo.running&&pomo.boxId===(id||''))return pomoShow();
-      if(pomo&&pomo.running){pomoPause()}pomo=null;pomoOpen(id);if(!pomo)return;pomo.starter=true;pomo.phase='foco';pomo.total=pomo.left=5*60;pomoStore();pomoStart();render()})},
+      if(pomo&&pomo.running){pomoPause()}pomo=null;pomoOpen(id);if(!pomo)return;pomo.starter=false;pomo.phase='foco';pomo.total=pomo.left=PD().foco*60;pomoStore();pomoStart();render()})},
   cdCancel:()=>{clearTimeout(cdT);$('#cd').classList.remove('open')},
   emoBlk:el=>{readSettings();openEmo(el.dataset.id,()=>openSettings())},
   emoFix:el=>{readSettings();openEmo(el.dataset.id,()=>openPlan())},
@@ -1865,7 +1865,7 @@ const A={
     state.fixed.push({id:uid(),blockId:b.id,title:'',days:[1,2,3,4,5],start:DAY_START,dur:60,avisoMin:5});openEmo(b.id,()=>openPlan())},
   checkUpd:()=>checkUpdate(true),
   doUpdate:()=>forceUpdate(),
-  starter:el=>{const id=el.dataset.id;pomoOpen(id);if(!pomo||pomo.boxId!==(id||'')||pomo.running)return;pomo.starter=true;pomo.phase='foco';pomo.total=pomo.left=5*60;pomoStore();pomoStart()},
+  starter:el=>{const id=el.dataset.id;pomoOpen(id);if(!pomo||pomo.boxId!==(id||'')||pomo.running)return;pomo.starter=false;pomo.phase='foco';pomo.total=pomo.left=PD().foco*60;pomoStore();pomoStart()},
   toBox:el=>{const t=state.tasks.find(x=>x.id===el.dataset.id);if(!t)return;t.status='plan';t.date=today();t.boxId=el.dataset.b;save();render()},
   fqDone:()=>{const t=state.tasks.find(x=>x.id===pomo.cur);if(t){t.done=true;t.doneAt=t.date||today();t.half=false;t.missed=false}pomo.cur='';pomoStore();save();render();pomoRender();if(navigator.vibrate)navigator.vibrate(30);toast('¡Una menos! 👏')},
   fqHalf:()=>{const t=state.tasks.find(x=>x.id===pomo.cur);if(t){t.half=true;pomo.skip=pomo.skip||[];if(!pomo.skip.includes(t.id))pomo.skip.push(t.id)}
