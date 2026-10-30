@@ -389,6 +389,14 @@ nav.tabs button.on .i{filter:none;opacity:1}
 .mustlink{width:100%;text-align:left;padding:12px 14px;border-radius:14px;border:1.5px dashed var(--line);color:var(--mu);font-weight:600;margin-bottom:12px}
 .quote.big{padding:22px 20px}
 .quote.big q{font-size:21px;line-height:1.35}
+.grph.tog{width:100%;text-align:left;background:var(--s1);border-radius:16px;padding:14px;margin:0;font-size:16px;display:flex;align-items:center;gap:10px;border-left:4px solid var(--c)}
+.grph.tog .em{font-size:22px}
+.grph.tog .cnt{margin-left:auto;background:var(--s2);padding:3px 10px;border-radius:99px;color:var(--tx);font-weight:700}
+.grph.tog .chev{color:var(--mu);font-size:14px}
+.grp.open .grph.tog{border-radius:16px 16px 0 0}
+.grp.open .card{border-radius:0 0 16px 16px}
+.grp{margin-top:8px}
+.qadd .chips{margin-top:8px}
 #alarm{position:fixed;inset:0;z-index:80;background:rgba(10,13,22,.96);display:none;place-items:center;text-align:center;padding:24px}
 #alarm.open{display:grid}
 #alarm .at{font:800 34px/1.1 var(--disp);color:var(--amber);margin:10px 0}
@@ -475,14 +483,15 @@ function spawnNext(t,minDate){if(!t.rep||t.spawned)return;let d=nextDue(t.due||t
   state.tasks.push(newTask({text:t.text,tags:(t.tags||[]).slice(),nivel:t.nivel,tipo:'dia',rep:t.rep,due:d,subs:(t.subs||[]).map(x=>({...x,id:uid(),done:false}))}))}
 const AREAS={j:{name:'Negocio Javicard',short:'Negocio',c:'#5AB0E8'},d:{name:'Tareas domésticas',short:'Casa',c:'#B9B2A3'},e:{name:'Estudios',short:'Estudios',c:'#B79CF0'},c:{name:'Físico',short:'Físico',c:'#FF8A65'}};
 const AK=Object.keys(AREAS), AMAX=AK.length*5;
-const APP_VERSION='29 oct 2026 · v18';
+const APP_VERSION='30 oct 2026 · v19';
 const HORIZ={mes:'Este mes',tri:'Trimestre',ano:'Este año'};
 
 /* ---------- estado ---------- */
 const KEY='javitime3', FB_PATH='javitime3', OLD_PATH='javitime2', OLD_KEY='javitime2', BASE_KEY='jt3_base', PEND_KEY='jt3_pending';
 const FIREBASE_CONFIG={apiKey:"AIzaSyACdZKT1NIqgav-7xqVinH06DgkM7_dolA",authDomain:"organizacion-93e07.firebaseapp.com",databaseURL:"https://organizacion-93e07-default-rtdb.firebaseio.com",projectId:"organizacion-93e07",storageBucket:"organizacion-93e07.firebasestorage.app",messagingSenderId:"650906241185",appId:"1:650906241185:web:2f9060552095d4711448e0"};
+let openG=(()=>{try{return new Set(JSON.parse(localStorage.getItem('jt_openG')||'[]'))}catch(e){return new Set()}})();
 let bForm={b:'',l:'n',t:'dia',tags:[]}, bancoTag='', curSheet=null;
-let state, view=today(), tab='hoy', gPer='mes', gRef=today(), bancoF='foco', draft=null, lastDay=today();
+let state, view=today(), tab='hoy', gPer='mes', gRef=today(), bancoF='todas', draft=null, lastDay=today();
 let fbRef=null, fbReady=false, connected=false, needRender=false;
 
 function arr(x){return Array.isArray(x)?x.filter(Boolean):(x&&typeof x==='object'?Object.values(x).filter(Boolean):[])}
@@ -505,6 +514,12 @@ function normalize(p){
   s.tasks.forEach(t=>{t.tags=arr(t.tags);t.subs=arr(t.subs)});
   s.folders.forEach(f=>f.items=arr(f.items));
   s.pomoLog=p.pomoLog||{};
+  if(!s.settings.tagsV19){const EM={'rápida':'⚡','rapida':'⚡','esperando a alguien':'⏳','plata':'💰','casa':'🏠'};
+    s.tags.forEach((g,i)=>{g.o=50+i;if(!g.emoji){const b=g.id.startsWith('b_')&&s.blocks.find(x=>'b_'+x.id===g.id);g.emoji=b?b.emoji:(EM[g.name.toLowerCase()]||'🏷️')}});
+    [['💻','PC','#5AB0E8'],['💼','Negocio','#F2B544'],['🏠','Casa','#B9B2A3'],['🚗','Calle','#E58BA0'],['🤝','Proveedores','#7BC59A'],['📱','Celu','#B79CF0'],['📦','Depósito','#8FD16A'],['📸','Redes','#62CFCB']].forEach(([e,n,c],i)=>{
+      const ex=s.tags.find(g=>g.name.toLowerCase()===n.toLowerCase()||g.name.toLowerCase().startsWith(n.toLowerCase()+' '));if(ex){ex.o=i;if(!ex.emoji||ex.emoji==='🏷️')ex.emoji=e;return}
+      s.tags.push({id:'t_'+n.toLowerCase().normalize('NFD').replace(/[^a-z]/g,''),name:n,emoji:e,color:c,o:i})});
+    s.settings.tagsV19=1}
   if(!s.settings.lockV17){s.fixed.forEach(f=>{if(f.blockId==='gym'&&f.lock==null)f.lock=true});s.settings.lockV17=1}
   if(!s.settings.tagsV11){s.tasks.forEach(t=>{if(!t.blockId)return;const b=s.blocks.find(x=>x.id===t.blockId);if(b){const id='b_'+b.id;if(!s.tags.some(g=>g.id===id))s.tags.push({id,name:b.name,color:b.color});if(!t.tags.includes(id))t.tags.push(id)}t.blockId=''});s.settings.tagsV11=1}
   if(!s.settings.blocksV2){[{id:'estudio',name:'Estudio',emoji:'📚',color:'#D9C36A'},{id:'fisico',name:'Tareas físicas',emoji:'🏋️',color:'#8FD16A'}].forEach((b,i)=>{if(!s.blocks.some(x=>x.id===b.id))s.blocks.push({...b,o:900+i})});s.settings.blocksV2=1;}
@@ -608,10 +623,11 @@ const AVISOS=[[-1,'Sin aviso'],[0,'Al empezar'],[5,'5 min antes'],[10,'10 min an
 const avisoOf=b=>b.avisoMin!=null?+b.avisoMin:(b.aviso===false?-1:0);
 const bellTxt=b=>{const o=avisoOf(b);return o<0?'':o?' 🔔'+o+'′':' 🔔'};
 const tagOf=id=>state.tags.find(t=>t.id===id);
-const tagPills=t=>{const a=(t.tags||[]).map(tagOf).filter(Boolean);return a.length?'<span class="tagrow">'+a.map(g=>`<span class="tagp" style="--tc:${g.color}">${esc(g.name)}</span>`).join('')+'</span>':''};
+const tagLabel=g=>(g.emoji?g.emoji+' ':'')+esc(g.name);
+const tagPills=t=>{const a=(t.tags||[]).map(tagOf).filter(Boolean);return a.length?'<span class="tagrow">'+a.map(g=>`<span class="tagp" style="--tc:${g.color}">${tagLabel(g)}</span>`).join('')+'</span>':''};
 const blockOpts=sel=>`<option value="" ${!sel?'selected':''}>📝 Sin bloque (tarea suelta)</option>`+state.blocks.map(b=>`<option value="${b.id}" ${b.id===sel?'selected':''}>${b.emoji} ${esc(b.name)}</option>`).join('')+'<option value="__new">➕ Nuevo bloque…</option>';
 const catOpts=sel=>state.ecats.map(c=>`<option value="${c.id}" ${c.id===sel?'selected':''}>${c.emoji} ${esc(c.name)}</option>`).join('')+'<option value="__new">➕ Nueva categoría…</option>';
-const tagChips=(sel,act)=>state.tags.map(g=>`<button class="chip ${sel.includes(g.id)?'on':''}" style="--cc:${g.color}" data-act="${act}" data-id="${g.id}">${esc(g.name)}</button>`).join('');
+const tagChips=(sel,act)=>state.tags.map(g=>`<button class="chip ${sel.includes(g.id)?'on':''}" style="--cc:${g.color}" data-act="${act}" data-id="${g.id}">${tagLabel(g)}</button>`).join('');
 const catOf=id=>state.ecats.find(c=>c.id===id)||{id:'',name:'Otros',emoji:'📌',budget:0};
 const boxesOf=d=>state.boxes.filter(b=>b.date===d&&!b.skipped).sort((a,b)=>a.start-b.start);
 const tasksOfBox=id=>state.tasks.filter(t=>t.boxId===id&&t.status==='plan');
@@ -767,7 +783,7 @@ function viewHoy(){
       <div class="rail"><b>${hm(b.start)}</b><span>${b.start+b.dur>=1440?'00:00':hm(b.start+b.dur)}</span></div>
       <div class="bx" style="--h:${Math.max(56,b.dur/30*30)}px">
         <button class="bxhead" data-act="editBox" data-id="${b.id}"><span>${bl.emoji}</span><span class="bt">${esc(bl.name)}${b.title&&b.title!==bl.name?`<small style="display:block;font-weight:500;color:var(--mu);font-size:12px">${esc(b.title)}</small>`:''}</span><span class="bd">${b.pomos?'🍅'+b.pomos+' ':''}${fmtDur(b.dur)}${bellTxt(b)}</span></button>
-        ${ts.length?'<ul class="tl">'+ts.map(taskLi).join('')+'</ul>':`<ul class="tl"><li class="${b.done?'done':''}"><button class="ck ${b.done?'on':''}" data-act="tgBox" data-id="${b.id}" aria-label="Marcar caja"></button><span class="tx muted">Marcar caja como hecha</span></li></ul>`}
+        ${ts.length?'<ul class="tl">'+ts.map(taskLi).join('')+'</ul>':`<ul class="tl"><li class="${b.done?'done':''}"><button class="ck ${b.done?'on':''}" data-act="tgBox" data-id="${b.id}" aria-label="Marcar caja"></button><span class="tx muted">Marcar bloque como hecho</span></li></ul>`}
         ${past?'':`<div class="row" style="justify-content:space-between"><button class="addt" data-act="editBox" data-id="${b.id}">✎ editar</button>${isFree(b)?'':`<button class="addt" data-act="skipDay" data-id="${b.id}">🚫 Hoy no</button>`}<button class="addt" style="color:var(--amber);font-weight:600" data-act="pomoOpen" data-id="${b.id}">🍅${b.pomos?' '+b.pomos:''}</button></div>`}
       </div></div>`;
     cur=Math.max(cur,b.start+b.dur);
@@ -819,6 +835,7 @@ function viewBanco(){
   let h=`<div class="card stack">
     <div class="row"><input id="bTxt" class="grow" placeholder="¿Qué tenés que hacer?"><button class="btn primary" data-act="addBanco">Agregar</button></div>
     <div class="chips" id="bTags">${tagChips(bForm.tags,'bTag')}<button class="chip" data-act="newTag" data-ctx="b">+ Etiqueta</button></div>
+    <button class="link" style="font-size:13px" data-act="tagsMgr">✎ Editar etiquetas e íconos</button>
     <details><summary class="link">Más opciones (urgencia, tipo, fecha)</summary><div class="stack" style="margin-top:8px">
     <div class="row"><select id="bLvl" class="grow">${Object.entries(LEVELS).map(([k,v])=>`<option value="${k}" ${k===bForm.l?'selected':''}>${v.name}</option>`).join('')}</select></div>
     <div class="row"><select id="bTipo" class="grow">${Object.entries(TIPOS).map(([k,v])=>`<option value="${k}" ${k===bForm.t?'selected':''}>${v}</option>`).join('')}</select>
@@ -826,14 +843,17 @@ function viewBanco(){
     <select id="bRep">${Object.entries(REPS).map(([k,v])=>`<option value="${k}">🔁 ${v}</option>`).join('')}</select></div></details>
   </div>
   <div class="scroller" style="margin-top:14px">${Object.keys(F).map(k=>`<button class="chip ${bancoF===k?'on':''}" ${k==='miss'?'style="--cc:var(--bad)"':''} data-act="bf" data-f="${k}">${names[k]} ${F[k].length}</button>`).join('')}</div>`;
-  if(state.tags.length)h+=`<div class="scroller" style="margin-top:6px">${state.tags.map(g=>`<button class="chip ${bancoTag===g.id?'on':''}" style="--cc:${g.color}" data-act="btf" data-id="${g.id}"># ${esc(g.name)}</button>`).join('')}</div>`;
-  const list=bancoTag?F[bancoF].filter(t=>(t.tags||[]).includes(bancoTag)):F[bancoF];
+  const list=F[bancoF];
   if(!list.length){h+=`<div class="empty">${bancoF==='miss'?'Nada pendiente de días anteriores. Bien ahí.':'No hay tareas acá. Anotá arriba lo que tengas en la cabeza.'}</div>`;}
-  const groups={};if(bancoF==='foco')groups.__f=list;else list.forEach(t=>{const k=(t.tags||[]).find(id=>tagOf(id))||'';(groups[k]=groups[k]||[]).push(t)});
-  (bancoF==='foco'?[{id:'__f',name:'Lo más importante ahora',color:'#F2B544',emoji:'🎯'}]:state.tags.map(g=>({id:g.id,name:g.name,color:g.color,emoji:'#'})).concat([{id:'',name:'Sin etiqueta',color:'#8D96AC',emoji:'📝'}])).forEach(b=>{
+  const groups={};if(bancoF==='foco')groups.__f=list;else list.forEach(t=>{const ks=(t.tags||[]).filter(id=>tagOf(id));(ks.length?ks:['']).forEach(k=>(groups[k]=groups[k]||[]).push(t))});
+  if(bancoF==='todas'){const H=state.tasks.filter(t=>t.status==='plan'&&t.date===today()&&!t.done);if(H.length)groups.__hoy=H}
+  (bancoF==='foco'?[{id:'__f',name:'Lo más importante ahora',color:'#F2B544',emoji:'🎯'}]:[{id:'__hoy',name:'En tu día de hoy',color:'#F2B544',emoji:'📅'}].concat(state.tags.map(g=>({id:g.id,name:g.name,color:g.color,emoji:g.emoji||'🏷️'}))).concat([{id:'',name:'Sin etiqueta',color:'#8D96AC',emoji:'📝'}])).forEach(b=>{
     const g=groups[b.id];if(!g)return;
     if(b.id!=='__f')g.sort((x,y)=>(LEVELS[x.nivel]||LEVELS.n).o-(LEVELS[y.nivel]||LEVELS.n).o||(y.reprog||0)-(x.reprog||0));
-    h+=`<div class="grp" style="--c:${b.color}"><div class="grph"><span class="dot"></span>${b.emoji} ${esc(b.name)} <span class="cnt">${g.length}</span></div><div class="card" style="padding:4px 14px">`+
+    const op=b.id==='__f'||openG.has(b.id||'__none');
+    h+=`<div class="grp ${op?'open':''}" style="--c:${b.color}">${b.id==='__f'?`<div class="grph"><span class="dot"></span>${b.emoji} ${esc(b.name)} <span class="cnt">${g.length}</span></div>`:`<button class="grph tog" data-act="grpTog" data-id="${b.id||'__none'}"><span class="em">${b.emoji}</span><span>${esc(b.name)}</span><span class="cnt">${g.length}</span><span class="chev">${op?'▴':'▾'}</span></button>`}`;
+    if(!op){h+='</div>';return}
+    h+=`<div class="card" style="padding:4px 14px">`+
       g.map(t=>{const L=LEVELS[t.nivel]||LEVELS.n;
         const meta=[`<span style="color:${L.c}">${L.short}</span>`,`<span>${TIPOS[t.tipo]||''}</span>`];
         if(t.due)meta.push('<span>para el '+parse(t.due).getDate()+'/'+(parse(t.due).getMonth()+1)+'</span>');
@@ -842,10 +862,10 @@ function viewBanco(){
         if(t.rep)meta.push('<span>🔁 '+REPS[t.rep].toLowerCase()+'</span>');
         if(t.half)meta.push('<span style="color:var(--amber)">½ a medias</span>');
         if((t.subs||[]).length)meta.push('<span style="color:var(--ok)">☑ '+t.subs.filter(x=>x.done).length+'/'+t.subs.length+'</span>');
-        (t.tags||[]).map(tagOf).filter(Boolean).forEach(g=>meta.push(`<span class="tagp" style="--tc:${g.color}">${esc(g.name)}</span>`));
+        (t.tags||[]).map(tagOf).filter(Boolean).forEach(g=>meta.push(`<span class="tagp" style="--tc:${g.color}">${tagLabel(g)}</span>`));
         return `<div class="titem"><button class="ck" data-act="tg" data-id="${t.id}" aria-label="Marcar hecha"></button><span class="lvl" style="background:${L.c}"></span>
           <button class="body" data-act="editTask" data-id="${t.id}"><span class="tx">${esc(t.text)}</span><span class="meta">${meta.join('')}</span></button>
-          <button class="ib" data-act="starTask" data-id="${t.id}" aria-label="Innegociable">${isPrin(t.id,today())?'⭐':'☆'}</button><button class="hoybtn" data-act="toHoy" data-id="${t.id}">Hoy</button></div>`}).join('')+'</div></div>';
+          <button class="ib" data-act="starTask" data-id="${t.id}" aria-label="Innegociable">${isPrin(t.id,today())?'⭐':'☆'}</button>${t.status==='plan'?'<span class="mini">hoy</span>':`<button class="hoybtn" data-act="toHoy" data-id="${t.id}">Hoy</button>`}</div>`}).join('')+'</div></div>';
   });
   if(bancoF==='foco'&&all.length>5)h+=`<div class="tipbox" style="margin-top:12px">🧠 Tenés ${all.length-5} tarea${all.length-5>1?'s':''} más guardada${all.length-5>1?'s':''}. Están anotadas, no se pierden: <b>no tenés que pensar en ellas ahora</b>.</div><button class="btn block" data-act="bf" data-f="todas">Ver todo el banco (${all.length})</button>`;
   const doneCount=state.tasks.filter(t=>t.done&&t.doneAt>=mondayOf(today())).length;
@@ -1097,7 +1117,8 @@ function openBlockTasks(bid){
   if(PI.length)h+=`<div class="lbl">⭐ Tus innegociables de hoy</div><ul class="tl">${PI.map(t=>addRow(t,'⭐ ')).join('')}</ul>`;
   else if(principalsOf(today()).length<3)h+=`<div class="muted" style="font-size:13px;margin-top:14px">Tocá ☆ en cualquier tarea para hacerla innegociable.</div>`;
   if(LO.length)h+=`<div class="lbl">📌 Para hoy, sin bloque</div><ul class="tl">${LO.map(t=>addRow(t)).join('')}</ul>`;
-  h+=`<div class="lbl">Sumar al bloque</div><div class="row"><input id="wNew" class="grow" placeholder="Escribí una tarea"><button class="btn" data-act="wAdd" data-b="${b.id}">+</button></div>
+  h+=`<div class="lbl">Sumar al bloque</div><div class="qadd"><div class="row"><input id="wNew" class="grow" placeholder="Nueva tarea"><button class="btn primary" data-act="wAdd" data-b="${b.id}">Agregar</button></div>
+    <div class="chips" id="wTags">${tagChips([],'wTag')}</div></div>
     ${sug.length?`<ul class="tl" style="margin-top:6px">${sug.map(t=>addRow(t)).join('')}</ul>`:''}
     <div class="shfoot"><button class="btn primary" data-act="closeSheet">Listo</button></div>`;
   sheet(h);
@@ -1140,11 +1161,22 @@ function countdown(cb){
 /* ---------- ÍCONOS ---------- */
 const EMOJIS='💼👑💰📈🎯🚀🔥⚡🧠💡📊🤝💻📱☎️🧾📦🚚🛒🏪🥤🍺📸🎬✍️📝📚🎓💪🏋️🧘🏃🍽️🏠🧹🧺🛠️🔧🚗🏦💵📅🎨🎵🌱💊🐶❤️⭐🧩'.match(/\p{Extended_Pictographic}️?/gu);
 let emoTarget=null, emoReturn=null;
-function openEmo(blockId,ret){
-  const b=state.blocks.find(x=>x.id===blockId);if(!b)return;emoTarget=blockId;emoReturn=ret;
+let emoKind='block';
+function openEmo(blockId,ret,kind){
+  emoKind=kind||'block';const b=(emoKind==='tag'?state.tags:state.blocks).find(x=>x.id===blockId);if(!b)return;emoTarget=blockId;emoReturn=ret;
   sheet(`<h3>Ícono de ${esc(b.name)}</h3><div class="emog">${EMOJIS.map(e=>`<button class="${e===b.emoji?'on':''}" data-act="emoSet" data-e="${e}">${e}</button>`).join('')}</div>
     <div class="lbl">U otro emoji del teclado</div><div class="row"><input id="emoTxt" class="grow" maxlength="4" placeholder="${b.emoji}"><button class="btn primary" data-act="emoTxt">Usar</button></div>`);
 }
+
+/* ---------- ETIQUETAS ---------- */
+function openTags(){
+  curSheet=openTags;
+  sheet(`<h3>🏷️ Etiquetas</h3><div class="muted" style="font-size:14px">Dónde o con qué hacés la tarea: PC, Negocio, Calle, Proveedores… El banco se ordena con estas.</div>
+    <div id="tgList" style="margin-top:12px">${state.tags.map(g=>`<div class="srow2" data-tid="${g.id}" style="grid-template-columns:44px 1fr 52px 32px"><button class="ib" style="width:44px;height:40px;font-size:20px" data-act="emoTag" data-id="${g.id}" aria-label="Cambiar ícono">${g.emoji||'🏷️'}</button><input value="${esc(g.name)}" data-k="name" aria-label="Nombre"><input type="color" value="${g.color}" data-k="color" style="padding:2px;height:40px" aria-label="Color"><button class="x" data-act="tgDel" data-id="${g.id}" aria-label="Borrar etiqueta">✕</button></div>`).join('')}</div>
+    <div class="row" style="margin-top:8px"><input id="tgNew" class="grow" placeholder="Nueva etiqueta (ej: Proveedores)"><button class="btn primary" data-act="tgAdd">Crear</button></div>
+    <div class="shfoot"><button class="btn primary" data-act="tgSave">Listo</button></div>`);
+}
+function readTags(){document.querySelectorAll('#tgList .srow2').forEach(r=>{const g=state.tags.find(x=>x.id===r.dataset.tid);if(!g)return;r.querySelectorAll('[data-k]').forEach(i=>g[i.dataset.k]=i.value.trim()||g[i.dataset.k])})}
 
 /* ---------- PLANTILLA DE BLOQUES ---------- */
 function planMissing(d){if(d<today())return 0;const n=d===today()?nowMin():0;return state.fixed.filter(f=>f.days.includes(dow(d))&&!state.boxes.some(b=>b.date===d&&b.fixedId===f.id)).length}
@@ -1391,7 +1423,7 @@ function viewStats(){
   // por bloque
   const byB={};S.forEach(s=>{}); state.tasks.filter(t=>t.done&&t.doneAt>=days[0]).forEach(t=>{const k=(t.tags||[]).find(id=>tagOf(id))||'';byB[k]=(byB[k]||0)+1});
   const bl=Object.entries(byB).sort((a,b)=>b[1]-a[1]);const bmax=Math.max(1,...bl.map(x=>x[1]));
-  h+=`<div class="sec"><h2>Hechas por etiqueta</h2></div><div class="card">${bl.length?bl.map(([id,n])=>{const g=tagOf(id),b=g?{emoji:'#',name:g.name,color:g.color}:{emoji:'📝',name:'Sin etiqueta',color:'#8D96AC'};return `<div class="hbarrow"><span>${b.emoji} ${esc(b.name)}</span><div class="pbar"><i style="width:${n/bmax*100}%;background:${b.color}"></i></div><b>${n}</b></div>`}).join(''):'<div class="empty">Todavía no hay tareas hechas en este período.</div>'}</div>`;
+  h+=`<div class="sec"><h2>Hechas por etiqueta</h2></div><div class="card">${bl.length?bl.map(([id,n])=>{const g=tagOf(id),b=g?{emoji:g.emoji||'🏷️',name:g.name,color:g.color}:{emoji:'📝',name:'Sin etiqueta',color:'#8D96AC'};return `<div class="hbarrow"><span>${b.emoji} ${esc(b.name)}</span><div class="pbar"><i style="width:${n/bmax*100}%;background:${b.color}"></i></div><b>${n}</b></div>`}).join(''):'<div class="empty">Todavía no hay tareas hechas en este período.</div>'}</div>`;
   // mejor día de la semana (todo el historial)
   const wd=[0,0,0,0,0,0,0],wc=[0,0,0,0,0,0,0];for(let i=0;i<56;i++){const d=addDays(today(),-i);const s=dayStats(d);if(s.done||s.missed){wd[dow(d)-1]+=s.done;wc[dow(d)-1]++}}
   const wavg=wd.map((v,i)=>wc[i]?v/wc[i]:0);const wmax=Math.max(...wavg);
@@ -1484,17 +1516,18 @@ function renderBoxSheet(){
   const prin=free.filter(t=>PR.includes(t.id)), today0=free.filter(t=>t.status==='plan'&&!PR.includes(t.id));
   const pool=free.filter(t=>t.status==='banco').sort((x,y)=>(tagMatch(y,b.blockId)?1:0)-(tagMatch(x,b.blockId)?1:0)||(y.half?1:0)-(x.half?1:0)||(LEVELS[x.nivel]||LEVELS.n).o-(LEVELS[y.nivel]||LEVELS.n).o);
   const pk=t=>`<li><span class="tx">${esc(t.text)}${t.half?' <span class="mini amb">½</span>':''}</span><button class="hoybtn" data-act="dPick" data-id="${t.id}">+ Sumar</button></li>`;
-  sheet(`<h3>${d.isNew?'Nueva caja':'Editar caja'}</h3><div class="muted" style="font-size:14px">${hm(b.start)} a ${b.start+b.dur>=1440?'00:00':hm(b.start+b.dur)}</div>
-    <div class="lbl">Bloque</div><div class="chips">${state.blocks.map(x=>`<button class="chip ${x.id===b.blockId?'on':''}" style="--cc:${x.color}" data-act="dBlock" data-id="${x.id}">${x.emoji} ${esc(x.name)}</button>`).join('')}</div>
+  sheet(`<h3>${d.isNew?'Nuevo bloque':'Editar bloque'}</h3><div class="muted" style="font-size:14px">${hm(b.start)} a ${b.start+b.dur>=1440?'00:00':hm(b.start+b.dur)}</div>
+    <div class="lbl">Tipo de bloque</div><div class="chips">${state.blocks.map(x=>`<button class="chip ${x.id===b.blockId?'on':''}" style="--cc:${x.color}" data-act="dBlock" data-id="${x.id}">${x.emoji} ${esc(x.name)}</button>`).join('')}</div>
     <div class="row" style="margin-top:14px"><label style="flex:0 0 34%"><div class="lbl" style="margin-top:0">Empieza</div><select data-f="start">${opts}</select></label>
 </div>
     <div class="lbl">Duración</div><div class="chips">${[30,45,60,90,120,180,240].map(m=>`<button class="chip ${b.dur===m?'on':''}" data-act="dDur" data-m="${m}">${fmtDur(m)}</button>`).join('')}</div>
     <details style="margin-top:12px"><summary class="link">Más opciones (nombre, aviso)</summary>
       <div class="lbl">Nombre (opcional)</div><input data-f="title" value="${esc(b.title)}" placeholder="${esc(bl.name)}">
       <div class="lbl">Aviso</div><div class="chips">${AVISOS.map(([m,l])=>`<button class="chip ${avisoOf(b)===m?'on':''}" data-act="dAviso" data-m="${m}">${l}</button>`).join('')}</div></details>
-    <div class="lbl">Tareas en esta caja</div>
-    ${inBox.length||d.news.length?'<ul class="tl">'+inBox.map(t=>`<li><span class="tx">${esc(t.text)}</span><button class="x" data-act="dRem" data-id="${t.id}" aria-label="Sacar">✕</button></li>`).join('')+d.news.map((t,i)=>`<li><span class="tx">${esc(t)}</span><button class="x" data-act="dRemN" data-i="${i}" aria-label="Sacar">✕</button></li>`).join('')+'</ul>':'<div class="muted" style="font-size:14px">Todavía ninguna. Sumá del banco o escribí una nueva.</div>'}
-    <div class="row" style="margin-top:8px"><input id="dNew" class="grow" placeholder="Nueva tarea para esta caja"><button class="btn" data-act="dAdd">Sumar</button></div>
+    <div class="lbl">Tareas en este bloque</div>
+    ${inBox.length||d.news.length?'<ul class="tl">'+inBox.map(t=>`<li><span class="tx">${esc(t.text)}</span><button class="x" data-act="dRem" data-id="${t.id}" aria-label="Sacar">✕</button></li>`).join('')+d.news.map((t,i)=>`<li><span class="tx">${esc(t.text)}${tagPills(t)}</span><button class="x" data-act="dRemN" data-i="${i}" aria-label="Sacar">✕</button></li>`).join('')+'</ul>':'<div class="muted" style="font-size:14px">Todavía ninguna. Sumá del banco o escribí una nueva.</div>'}
+    <div class="qadd" style="margin-top:8px"><div class="row"><input id="dNew" class="grow" placeholder="Nueva tarea"><button class="btn primary" data-act="dAdd">Agregar</button></div>
+      <div class="chips" id="dTags">${tagChips(d.ntags||[],'dTag')}<button class="chip" data-act="newTag" data-ctx="d">+ Etiqueta</button></div></div>
     ${prin.length?`<div class="lbl">⭐ Tus 3 principales de hoy</div><ul class="tl">${prin.map(pk).join('')}</ul>`:''}
     ${today0.length?`<div class="lbl">Para hoy, sin horario</div><ul class="tl">${today0.map(pk).join('')}</ul>`:''}
     <div class="lbl">Del banco (${pool.length})</div>
@@ -1503,16 +1536,16 @@ function renderBoxSheet(){
     ${isLocked(b)?'<div class="tipbox">🔒 Bloque de horario fijo. Se cambia desde 🧱 Mi plantilla.</div>':''}
     ${d.isNew||isFree(b)?'':'<div class="row" style="margin-top:14px">'+(isLocked(b)?'':'<button class="btn grow" data-act="moveLater" data-id="'+b.id+'">⏰ Más tarde</button>')+'<button class="btn grow" data-act="skipDay" data-id="'+b.id+'">🚫 Hoy no lo hago</button></div>'}
     
-    <div class="shfoot">${d.isNew?'<button class="btn" data-act="closeSheet">Cancelar</button>':'<button class="btn danger" data-act="dDel">Borrar</button>'}<button class="btn primary" data-act="dSave">Guardar caja</button></div>`);
+    <div class="shfoot">${d.isNew?'<button class="btn" data-act="closeSheet">Cancelar</button>':'<button class="btn danger" data-act="dDel">Borrar</button>'}<button class="btn primary" data-act="dSave">Guardar bloque</button></div>`);
 }
 function boxSave(force){
-  const d=draft,b=d.b;const nt=$('#dNew');if(nt&&nt.value.trim()){d.news.push(nt.value.trim())}
+  const d=draft,b=d.b;const nt=$('#dNew');if(nt&&nt.value.trim()){d.news.push({text:nt.value.trim(),tags:(d.ntags||[]).slice()})}
   const end=b.start+b.dur;
   if(end>1440){toast('La caja se pasa de las 00:00');return}
   const clash=boxesOf(b.date).filter(x=>x.id!==b.id&&x.start<end&&b.start<x.start+x.dur);
   if(clash.length&&!force){openBoxClash(clash);return}
   if(d.isNew)state.boxes.push(b);else{const i=state.boxes.findIndex(x=>x.id===b.id);state.boxes[i]=b}
-  d.news.forEach(text=>state.tasks.push(newTask({text,blockId:'',status:'plan',date:b.date,boxId:b.id})));
+  d.news.forEach(n=>state.tasks.push(newTask({text:n.text,tags:n.tags||[],blockId:'',status:'plan',date:b.date,boxId:b.id})));
   d.ids.forEach(id=>{const t=state.tasks.find(x=>x.id===id);if(t){t.status='plan';t.date=b.date;t.boxId=b.id;}});
   const PRs=(state.principals[b.date]||[]);d.orig.filter(id=>!d.ids.includes(id)).forEach(id=>{const t=state.tasks.find(x=>x.id===id);if(t&&!t.done){t.boxId='';if(!PRs.includes(id)){t.status='banco';t.date=''}}});
   save();closeSheet();render();toast('Bloque guardado');
@@ -1573,9 +1606,7 @@ function openSettings(){
     <div id="sBlocks">${state.blocks.map(b=>`<div class="srow2" data-bid="${b.id}"><button class="ib" style="width:44px;height:40px;font-size:20px" data-act="emoBlk" data-id="${b.id}" aria-label="Cambiar ícono">${b.emoji}</button><input type="hidden" value="${esc(b.emoji)}" data-k="emoji"><input value="${esc(b.name)}" data-k="name" aria-label="Nombre"><input type="color" value="${b.color}" data-k="color" style="padding:2px;height:40px" aria-label="Color"><button class="x" data-act="sDelBlock" data-id="${b.id}" aria-label="Borrar bloque">✕</button></div>`).join('')}</div>
     <button class="link" data-act="sAddBlock">+ Agregar bloque</button>
     <div class="lbl" style="margin-top:22px">Etiquetas</div><div class="muted" style="font-size:13px;margin-bottom:8px">Para marcar tareas sueltas o de cualquier bloque.</div>
-    <div id="sTags">${state.tags.map(g=>`<div class="srow2" data-tid="${g.id}" style="grid-template-columns:1fr 92px 32px"><input value="${esc(g.name)}" data-k="name" aria-label="Nombre"><input type="color" value="${g.color}" data-k="color" style="padding:2px;height:40px" aria-label="Color"><button class="x" data-act="sDelTag" data-id="${g.id}" aria-label="Borrar etiqueta">✕</button></div>`).join('')}</div>
-    <button class="link" data-act="sAddTag">+ Agregar etiqueta</button>
-    <div class="lbl" style="margin-top:22px">Rutina fija</div><div class="muted" style="font-size:13px;margin-bottom:8px">Cajas que se crean solas cada semana, como tus entrenos.</div>
+    <button class="btn block" data-act="tagsMgr">🏷️ Administrar etiquetas e íconos</button>
     <div id="sFixed">${state.fixed.map(f=>`<div class="fixrow" data-fid="${f.id}">
       <div class="row"><select data-k="blockId" class="grow">${state.blocks.map(b=>`<option value="${b.id}" ${b.id===f.blockId?'selected':''}>${b.emoji} ${esc(b.name)}</option>`).join('')}</select><input data-k="title" class="grow" value="${esc(f.title)}" placeholder="Nombre"><button class="x" data-act="sDelFix" data-id="${f.id}" aria-label="Borrar">✕</button></div>
       <div class="row"><select data-k="start" class="grow">${tOpts(f.start)}</select><select data-k="dur" class="grow">${[30,45,60,90,120,180,240].map(m=>`<option value="${m}" ${m===f.dur?'selected':''}>${fmtDur(m)}</option>`).join('')}</select></div>
@@ -1788,12 +1819,20 @@ const A={
   dPick:el=>{draft.ids.push(el.dataset.id);renderBoxSheet()},
   dRem:el=>{draft.ids=draft.ids.filter(i=>i!==el.dataset.id);renderBoxSheet()},
   dRemN:el=>{draft.news.splice(+el.dataset.i,1);renderBoxSheet()},
-  dAdd:()=>{const v=$('#dNew').value.trim();if(!v)return;draft.news.push(v);renderBoxSheet();setTimeout(()=>{const i=$('#dNew');if(i)i.focus()},30)},
+  dAdd:()=>{const v=$('#dNew').value.trim();if(!v)return;draft.news.push({text:v,tags:(draft.ntags||[]).slice()});renderBoxSheet();setTimeout(()=>{const i=$('#dNew');if(i)i.focus()},30)},
   dSave:()=>boxSave(),
   dAviso:el=>{const m=+el.dataset.m;draft.b.avisoMin=m;draft.b.aviso=m>=0;renderBoxSheet()},
   eAlarmClr:()=>{$('#eAlarm').value=''},
   pomoOpen:el=>pomoOpen(el.dataset.id),
   bTasks:el=>openBlockTasks(el.dataset.id),
+  grpTog:el=>{const k=el.dataset.id;openG.has(k)?openG.delete(k):openG.add(k);try{localStorage.setItem('jt_openG',JSON.stringify([...openG]))}catch(e){}render()},
+  dTag:el=>{const id=el.dataset.id;draft.ntags=draft.ntags||[];draft.ntags=draft.ntags.includes(id)?draft.ntags.filter(x=>x!==id):draft.ntags.concat(id);el.classList.toggle('on')},
+  wTag:el=>el.classList.toggle('on'),
+  tagsMgr:()=>openTags(),
+  emoTag:el=>{readTags();openEmo(el.dataset.id,()=>openTags(),'tag')},
+  tgAdd:()=>{readTags();const v=$('#tgNew').value.trim();if(!v)return;const g={id:uid(),name:v,emoji:'🏷️',color:pickColor(state.tags.length)};state.tags.push(g);save();openEmo(g.id,()=>openTags(),'tag')},
+  tgDel:el=>{readTags();const g=tagOf(el.dataset.id);if(!g||!confirm('¿Borrar la etiqueta '+g.name+'? Las tareas no se borran.'))return;state.tags=state.tags.filter(x=>x.id!==g.id);state.tasks.forEach(t=>t.tags=(t.tags||[]).filter(x=>x!==g.id));save();openTags()},
+  tgSave:()=>{readTags();save();closeSheet();render();toast('Etiquetas guardadas')},
   lockInfo:()=>toast('🔒 Es de horario fijo. Si un día no podés: ⏭ Saltar. Para cambiarlo: 🧱 Mi plantilla.'),
   sWk:el=>{sWeek=Math.min(0,sWeek+(+el.dataset.n));render()},
   skipDay:el=>{const b=state.boxes.find(x=>x.id===el.dataset.id);if(!b)return;const bl=blockOf(b.blockId);if(!confirm('¿No hacés '+bl.name+' hoy?'))return;
@@ -1850,7 +1889,7 @@ const A={
     if(!r){toast('No hay lugar hoy ni mañana. Achicá otro bloque.');return}save();closeSheet();render();toast(blockOf(b.blockId).emoji+' '+blockOf(b.blockId).name+' '+r)},
   wMode:el=>{wMode=el.dataset.k;try{localStorage.setItem('jt_wmode',wMode)}catch(e){}window.scrollTo(0,0);render()},
   wAll:()=>{wAll=!wAll;render()},
-  wAdd:el=>{const i=$('#wNew');const v=i&&i.value.trim();if(!v)return;const b=state.boxes.find(x=>x.id===el.dataset.b);state.tasks.push(newTask({text:v,blockId:b?b.blockId:'',status:'plan',date:today(),boxId:el.dataset.b}));save();render()},
+  wAdd:el=>{const i=$('#wNew');const v=i&&i.value.trim();if(!v)return;const b=state.boxes.find(x=>x.id===el.dataset.b);state.tasks.push(newTask({text:v,tags:[...document.querySelectorAll('#wTags .chip.on')].map(c=>c.dataset.id),status:'plan',date:today(),boxId:el.dataset.b}));save();render()},
   wSkip:el=>{const b=state.boxes.find(x=>x.id===el.dataset.id);if(!b)return;const c=sweepBox(b);b.skipped=true;save();render();toast('Bloque salteado'+(c?'. '+c+' al banco':''))},
   go:el=>{const id=el.dataset.id,late=el.dataset.late==='1';
     countdown(()=>{const b=id&&state.boxes.find(x=>x.id===id);if(b){b.started=true;if(late){b.late=nowMin();restoreSwept(b)}save()}
@@ -1859,8 +1898,8 @@ const A={
   cdCancel:()=>{clearTimeout(cdT);$('#cd').classList.remove('open')},
   emoBlk:el=>{readSettings();openEmo(el.dataset.id,()=>openSettings())},
   emoFix:el=>{readSettings();openEmo(el.dataset.id,()=>openPlan())},
-  emoSet:el=>{const b=state.blocks.find(x=>x.id===emoTarget);if(b){b.emoji=el.dataset.e;save()}(emoReturn||closeSheet)()},
-  emoTxt:()=>{const v=$('#emoTxt').value.trim();if(!v)return;const b=state.blocks.find(x=>x.id===emoTarget);if(b){b.emoji=v;save()}(emoReturn||closeSheet)()},
+  emoSet:el=>{const b=(emoKind==='tag'?state.tags:state.blocks).find(x=>x.id===emoTarget);if(b){b.emoji=el.dataset.e;save()}(emoReturn||closeSheet)()},
+  emoTxt:()=>{const v=$('#emoTxt').value.trim();if(!v)return;const b=(emoKind==='tag'?state.tags:state.blocks).find(x=>x.id===emoTarget);if(b){b.emoji=v;save()}(emoReturn||closeSheet)()},
   planNewBlock:()=>{readSettings();const n=(prompt('Nombre del bloque nuevo (ej: Proyectar)')||'').trim();if(!n)return;const b={id:uid(),name:n,emoji:'🧩',color:pickColor(state.blocks.length),o:Date.now()};state.blocks.push(b);
     state.fixed.push({id:uid(),blockId:b.id,title:'',days:[1,2,3,4,5],start:DAY_START,dur:60,avisoMin:5});openEmo(b.id,()=>openPlan())},
   checkUpd:()=>checkUpdate(true),
@@ -1955,9 +1994,9 @@ const A={
   bTag:el=>{const id=el.dataset.id;bForm.tags=bForm.tags.includes(id)?bForm.tags.filter(x=>x!==id):[...bForm.tags,id];el.classList.toggle('on')},
   eTag:el=>el.classList.toggle('on'),
   btf:el=>{bancoTag=bancoTag===el.dataset.id?'':el.dataset.id;render()},
-  newTag:el=>{const n=(prompt('Nombre de la etiqueta')||'').trim();if(!n)return;const g={id:uid(),name:n,color:pickColor(state.tags.length)};state.tags.push(g);save();
-    const btn=document.createElement('button');btn.className='chip on';btn.style.setProperty('--cc',g.color);btn.dataset.act=el.dataset.ctx==='b'?'bTag':'eTag';btn.dataset.id=g.id;btn.textContent=g.name;el.before(btn);
-    if(el.dataset.ctx==='b')bForm.tags.push(g.id)},
+  newTag:el=>{const n=(prompt('Nombre de la etiqueta (ej: Proveedores)')||'').trim();if(!n)return;const e=(prompt('Emoji para '+n+' (opcional, ej: 🤝)')||'').trim();const g={id:uid(),name:n,emoji:e||'🏷️',color:pickColor(state.tags.length)};state.tags.push(g);save();
+    const btn=document.createElement('button');btn.className='chip on';btn.style.setProperty('--cc',g.color);btn.dataset.act={b:'bTag',d:'dTag'}[el.dataset.ctx]||'eTag';btn.dataset.id=g.id;btn.textContent=g.emoji+' '+g.name;el.before(btn);
+    if(el.dataset.ctx==='b')bForm.tags.push(g.id);if(el.dataset.ctx==='d'&&draft){draft.ntags=(draft.ntags||[]).concat(g.id)}},
   sAddTag:()=>{readSettings();state.tags.push({id:uid(),name:'Nueva etiqueta',color:pickColor(state.tags.length)});openSettings()},
   sDelTag:el=>{readSettings();state.tags=state.tags.filter(g=>g.id!==el.dataset.id);state.tasks.forEach(t=>t.tags=(t.tags||[]).filter(x=>x!==el.dataset.id));if(bancoTag===el.dataset.id)bancoTag='';openSettings()},
   bf:el=>{bancoF=el.dataset.f;render()},
@@ -2024,7 +2063,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){closeSheet();return}
   if(e.key!=='Enter')return;const id=e.target.id;
   if(e.target.classList.contains('fiNew')){e.preventDefault();A.fiAdd(e.target);return}
-  const map={eSubNew:'sdAdd',fdNew:'fdAdd',dNew:'dAdd',bTxt:'addBanco',qDet:'qExp',qAmt:'qExp',gDet:'gAdd',mTxt:'mAdd',pNew:'setPnew'};
+  const map={tgNew:'tgAdd',wNew:'wAdd',eSubNew:'sdAdd',fdNew:'fdAdd',dNew:'dAdd',bTxt:'addBanco',qDet:'qExp',qAmt:'qExp',gDet:'gAdd',mTxt:'mAdd',pNew:'setPnew'};
   if(map[id]){e.preventDefault();const btn=document.querySelector(`[data-act="${map[id]}"]`);if(btn)A[map[id]](btn)}
 });
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tick();push();if(pomo&&pomo.running){if(Date.now()>=pomo.endAt)pomoNext(true);else requestWake()}}});
