@@ -483,7 +483,7 @@ function spawnNext(t,minDate){if(!t.rep||t.spawned)return;let d=nextDue(t.due||t
   state.tasks.push(newTask({text:t.text,tags:(t.tags||[]).slice(),nivel:t.nivel,tipo:'dia',rep:t.rep,due:d,subs:(t.subs||[]).map(x=>({...x,id:uid(),done:false}))}))}
 const AREAS={j:{name:'Negocio Javicard',short:'Negocio',c:'#5AB0E8'},d:{name:'Tareas domésticas',short:'Casa',c:'#B9B2A3'},e:{name:'Estudios',short:'Estudios',c:'#B79CF0'},c:{name:'Físico',short:'Físico',c:'#FF8A65'}};
 const AK=Object.keys(AREAS), AMAX=AK.length*5;
-const APP_VERSION='30 oct 2026 · v19';
+const APP_VERSION='14 nov 2026 · v20';
 const HORIZ={mes:'Este mes',tri:'Trimestre',ano:'Este año'};
 
 /* ---------- estado ---------- */
@@ -1623,7 +1623,8 @@ function openSettings(){
       <label class="grow"><div class="muted" style="font-size:12px">Descanso</div><input id="sPC" type="number" min="1" max="30" value="${state.settings.pCorto||5}"></label>
       <label class="grow"><div class="muted" style="font-size:12px">Largo (cada 4)</div><input id="sPL" type="number" min="5" max="60" value="${state.settings.pLargo||15}"></label></div>
     <div class="lbl" style="margin-top:22px">Avisos</div>
-    <button class="btn block" data-act="sNotif">${perm==='granted'?'Avisos del navegador activados ✓':'Activar avisos del navegador'}</button>
+    <button class="btn block" data-act="sNotif">${perm==='granted'?'Avisos activados ✓':'Activar avisos (celu y reloj)'}</button>
+    <button class="btn block" style="margin-top:8px" data-act="sTestN">⌚ Probar aviso en el reloj (en 10 s)</button>
     <label class="tog"><input type="checkbox" id="sClose" ${state.settings.closeAlarm?'checked':''}> Aviso de cierre del día a las 23:30</label>
     <div class="muted" style="font-size:12px;margin-top:8px">Los avisos suenan con la app abierta. Para que suene sí o sí, usá "Al calendario": baja tus cajas con alarma al calendario del celu.</div>
     <div class="lbl" style="margin-top:22px">Versión</div><div class="row"><span class="grow muted" style="font-size:14px">Tenés la ${APP_VERSION}</span><button class="btn" data-act="checkUpd">Buscar actualización</button></div>
@@ -2024,6 +2025,8 @@ const A={
   sAddFix:()=>{readSettings();state.fixed.push({id:uid(),blockId:state.blocks[0].id,title:'',days:[1,2,3,4,5],start:DAY_START,dur:60});(curSheet||openSettings)()},
   sDelFix:el=>{readSettings();state.fixed=state.fixed.filter(f=>f.id!==el.dataset.id);(curSheet||openSettings)()},
   sDay:el=>{readSettings();const f=state.fixed.find(x=>x.id===el.dataset.id);const d=+el.dataset.d;f.days=f.days.includes(d)?f.days.filter(x=>x!==d):[...f.days,d].sort();(curSheet||openSettings)()},
+  sTestN:()=>{if(!('Notification' in window)||Notification.permission!=='granted'){toast('Primero tocá "Activar avisos"');return}
+    toast('Bloqueá el celu: en 10 segundos vibra el reloj');setTimeout(()=>notify('⏰ JaviTime','Prueba de aviso: si lo ves en el reloj, ya está todo listo 💪'),10000)},
   sNotif:()=>{if(!('Notification' in window)){toast('Este navegador no permite avisos');return}Notification.requestPermission().then(p=>{toast(p==='granted'?'Avisos activados':'Permiso rechazado');readSettings();openSettings()})},
   sSave:()=>{readSettings();
     state.boxes.forEach(b=>{if(!b.fixedId||b.date<today())return;const f=state.fixed.find(x=>x.id===b.fixedId);if(!f)return;b.lock=!!f.lock;if(b.date===today()&&nowMin()>=b.start)return;
