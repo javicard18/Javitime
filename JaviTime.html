@@ -483,7 +483,7 @@ function spawnNext(t,minDate){if(!t.rep||t.spawned)return;let d=nextDue(t.due||t
   state.tasks.push(newTask({text:t.text,tags:(t.tags||[]).slice(),nivel:t.nivel,tipo:'dia',rep:t.rep,due:d,subs:(t.subs||[]).map(x=>({...x,id:uid(),done:false}))}))}
 const AREAS={j:{name:'Negocio Javicard',short:'Negocio',c:'#5AB0E8'},d:{name:'Tareas domésticas',short:'Casa',c:'#B9B2A3'},e:{name:'Estudios',short:'Estudios',c:'#B79CF0'},c:{name:'Físico',short:'Físico',c:'#FF8A65'}};
 const AK=Object.keys(AREAS), AMAX=AK.length*5;
-const APP_VERSION='14 nov 2026 · v20';
+const APP_VERSION='16 nov 2026 · v21';
 const HORIZ={mes:'Este mes',tri:'Trimestre',ano:'Este año'};
 
 /* ---------- estado ---------- */
@@ -1624,7 +1624,7 @@ function openSettings(){
       <label class="grow"><div class="muted" style="font-size:12px">Largo (cada 4)</div><input id="sPL" type="number" min="5" max="60" value="${state.settings.pLargo||15}"></label></div>
     <div class="lbl" style="margin-top:22px">Avisos</div>
     <button class="btn block" data-act="sNotif">${perm==='granted'?'Avisos activados ✓':'Activar avisos (celu y reloj)'}</button>
-    <button class="btn block" style="margin-top:8px" data-act="sTestN">⌚ Probar aviso en el reloj (en 10 s)</button>
+    <div class="row" style="margin-top:8px"><button class="btn grow" data-act="sTestN" data-d="0">🔔 Probar ahora</button><button class="btn grow" data-act="sTestN" data-d="10">⌚ Probar en 10 s</button></div>
     <label class="tog"><input type="checkbox" id="sClose" ${state.settings.closeAlarm?'checked':''}> Aviso de cierre del día a las 23:30</label>
     <div class="muted" style="font-size:12px;margin-top:8px">Los avisos suenan con la app abierta. Para que suene sí o sí, usá "Al calendario": baja tus cajas con alarma al calendario del celu.</div>
     <div class="lbl" style="margin-top:22px">Versión</div><div class="row"><span class="grow muted" style="font-size:14px">Tenés la ${APP_VERSION}</span><button class="btn" data-act="checkUpd">Buscar actualización</button></div>
@@ -1679,9 +1679,18 @@ function markFired(k){fired.add(k);const a=[...fired].slice(-80);try{localStorag
 let actx=null;
 function beep(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();const t0=actx.currentTime;
   [0,.35,.7,1.4,1.75,2.1].forEach(dt=>{const o=actx.createOscillator(),g=actx.createGain();o.type='sine';o.frequency.value=880;g.gain.setValueAtTime(.0001,t0+dt);g.gain.exponentialRampToValueAtTime(.4,t0+dt+.02);g.gain.exponentialRampToValueAtTime(.0001,t0+dt+.25);o.connect(g).connect(actx.destination);o.start(t0+dt);o.stop(t0+dt+.3)})}catch(e){}}
-function notify(title,body){
-  if(!('Notification' in window)||Notification.permission!=='granted')return;
-  try{if(swReg&&swReg.showNotification){swReg.showNotification(title,{body,tag:title,vibrate:[300,100,300]});return}new Notification(title,{body})}catch(e){}
+async function getReg(){
+  if(swReg)return swReg;if(!('serviceWorker' in navigator))return null;
+  try{swReg=await navigator.serviceWorker.getRegistration()||null;if(!swReg&&location.protocol.startsWith('http')){swReg=await navigator.serviceWorker.register('sw.js',{updateViaCache:'none'})}
+    if(swReg&&!swReg.active){await Promise.race([navigator.serviceWorker.ready,new Promise(r=>setTimeout(r,4000))])}}catch(e){console.warn('sw',e)}
+  return swReg;
+}
+async function notify(title,body){
+  if(!('Notification' in window))return 'Este navegador no permite avisos';
+  if(Notification.permission!=='granted')return 'Falta el permiso de avisos';
+  const opts={body,tag:'jt'+Date.now(),renotify:true,vibrate:[300,100,300,100,500],icon:'icon-192.png',badge:'icon-192.png',requireInteraction:false};
+  try{const r=await getReg();if(r&&r.showNotification){await r.showNotification(title,opts);return ''}}catch(e){return 'Error del servicio: '+e.message}
+  try{new Notification(title,opts);return ''}catch(e){return 'No encuentro sw.js en GitHub. Subilo junto al JaviTime.html.'}
 }
 function alarm(title,body){
   $('#alT').textContent=title;$('#alB').textContent=body;$('#alarm').classList.add('open');
@@ -2025,8 +2034,9 @@ const A={
   sAddFix:()=>{readSettings();state.fixed.push({id:uid(),blockId:state.blocks[0].id,title:'',days:[1,2,3,4,5],start:DAY_START,dur:60});(curSheet||openSettings)()},
   sDelFix:el=>{readSettings();state.fixed=state.fixed.filter(f=>f.id!==el.dataset.id);(curSheet||openSettings)()},
   sDay:el=>{readSettings();const f=state.fixed.find(x=>x.id===el.dataset.id);const d=+el.dataset.d;f.days=f.days.includes(d)?f.days.filter(x=>x!==d):[...f.days,d].sort();(curSheet||openSettings)()},
-  sTestN:()=>{if(!('Notification' in window)||Notification.permission!=='granted'){toast('Primero tocá "Activar avisos"');return}
-    toast('Bloqueá el celu: en 10 segundos vibra el reloj');setTimeout(()=>notify('⏰ JaviTime','Prueba de aviso: si lo ves en el reloj, ya está todo listo 💪'),10000)},
+  sTestN:el=>{const d=+el.dataset.d;if(!('Notification' in window)||Notification.permission!=='granted'){toast('Primero tocá "Activar avisos"');return}
+    const go=async()=>{const err=await notify('⏰ JaviTime','Prueba de aviso: si lo ves en el reloj, ya está todo listo 💪');if(err)alarm('❌ No se pudo mandar el aviso',err);else if(!d)toast('Aviso enviado: mirá la barra de notificaciones')};
+    if(!d){go();return}toast('Bloqueá el celu ahora: en 10 segundos llega el aviso');setTimeout(go,10000)},
   sNotif:()=>{if(!('Notification' in window)){toast('Este navegador no permite avisos');return}Notification.requestPermission().then(p=>{toast(p==='granted'?'Avisos activados':'Permiso rechazado');readSettings();openSettings()})},
   sSave:()=>{readSettings();
     state.boxes.forEach(b=>{if(!b.fixedId||b.date<today())return;const f=state.fixed.find(x=>x.id===b.fixedId);if(!f)return;b.lock=!!f.lock;if(b.date===today()&&nowMin()>=b.start)return;
